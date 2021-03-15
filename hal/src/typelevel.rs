@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
-use generic_array::typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
+use typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
 
 mod private {
     /// Super trait used to mark traits with an exhaustive set of
