@@ -19,6 +19,8 @@ pub mod apb;
 pub use apb::*;
 
 /// TODO
+/// Collection of PAC structs. Users can get access to this as an escape hatch
+/// to handle situations outside the scope of the HAL.
 pub struct PacClocks {
     pub oscctrl: OSCCTRL,
     pub osc32kctrl: OSC32KCTRL,
@@ -27,6 +29,7 @@ pub struct PacClocks {
 }
 
 /// TODO
+/// This is the main entry point for users
 pub struct Clocks {
     pac: Option<PacClocks>,
     pub sources: sources::Sources,
@@ -38,6 +41,9 @@ pub struct Clocks {
 
 impl Clocks {
     /// TODO
+    /// Creating this is safe, because it takes ownership of the singleton
+    /// PAC structs. But all other `new` functions below are `unsafe`, because
+    /// they could allow duplicate clocks if used incorrectly.
     pub fn new(
         oscctrl: OSCCTRL,
         osc32kctrl: OSC32KCTRL,
@@ -64,12 +70,15 @@ impl Clocks {
     }
 
     /// TODO
+    /// Escape hatch for access to PAC structs
     pub unsafe fn pac(&mut self) -> Option<PacClocks> {
         self.pac.take()
     }
 }
 
 /// TODO
+/// This is a bit of a hack right now. I think it might be best if the RTC
+/// migrates into the `clock` module, since it's so integrated with OSC32KCTRL.
 pub trait RtcClock {
     fn enable_1k(&mut self) -> RTCSEL_A;
     fn enable_32k(&mut self) -> RTCSEL_A;

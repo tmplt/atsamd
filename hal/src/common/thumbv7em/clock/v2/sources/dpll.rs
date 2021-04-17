@@ -321,7 +321,7 @@ impl<D: DpllNum> DpllConfig<D> {
 
     /// TODO
     #[inline]
-    pub fn set_source<S>(self, source: S) -> (DpllConfig<D, S>, S::Borrow)
+    pub fn set_source<S>(self, source: S) -> (DpllConfig<D, S>, S::Lock)
     where
         S: AnySource + DpllSource,
     {
@@ -332,7 +332,7 @@ impl<D: DpllNum> DpllConfig<D> {
         dpll.regs.set_source_clock(S::DPLL_SRC);
         dpll.freq = freq;
         // TODO
-        (dpll, unsafe { source.borrow() })
+        (dpll, unsafe { source.lock() })
     }
 }
 
@@ -358,12 +358,12 @@ where
 
     /// TODO
     #[inline]
-    pub fn unset_source(self, source: S) -> (DpllConfig<D>, S::Release)
+    pub fn unset_source(self, source: S) -> (DpllConfig<D>, S::Unlock)
     where
         S: AnySource + DpllSource,
     {
         // TODO
-        (self.change_source(), unsafe { source.release() })
+        (self.change_source(), unsafe { source.unlock() })
     }
 }
 

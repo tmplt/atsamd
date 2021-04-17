@@ -11,7 +11,7 @@ use crate::pac::gclk::pchctrl::GEN_A;
 use crate::pac::NVMCTRL;
 
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{Count, CountOps, Is, NoneT, One, RefCount, Sealed, Zero};
+use crate::typelevel::{Count, CountOps, Is, NoneT, One, LockCount, Sealed, Zero};
 
 use super::sources::{AnySource, Dfll, OptionalSourceType, SourceForGclk, SourceType};
 
@@ -269,7 +269,7 @@ impl<G: GenNum> GclkConfig<G> {
 
     /// TODO
     #[inline]
-    pub fn set_source<New>(mut self, source: New) -> (GclkConfig<G, New::Source>, New::Borrow)
+    pub fn set_source<New>(mut self, source: New) -> (GclkConfig<G, New::Source>, New::Lock)
     where
         New: AnySource,
         New::Source: SourceForGclk<G>,
@@ -278,7 +278,7 @@ impl<G: GenNum> GclkConfig<G> {
         let mut config = self.change_source();
         config.freq = source.freq();
         // TODO
-        (config, unsafe { source.borrow() })
+        (config, unsafe { source.lock() })
     }
 }
 
@@ -289,14 +289,14 @@ where
 {
     /// TODO
     #[inline]
-    pub fn unset_source<Old>(self, source: Old) -> (GclkConfig<G>, Old::Release)
+    pub fn unset_source<Old>(self, source: Old) -> (GclkConfig<G>, Old::Unlock)
     where
         Old: AnySource<Source = S>,
     {
         // Leave the register unchanged
         let config = self.change_source();
         // TODO
-        (config, unsafe { source.release() })
+        (config, unsafe { source.unlock() })
     }
 
     /// TODO
@@ -305,7 +305,7 @@ where
         self,
         old: Old,
         new: New,
-    ) -> (GclkConfig<G, New::Source>, Old::Release, New::Borrow)
+    ) -> (GclkConfig<G, New::Source>, Old::Unlock, New::Lock)
     where
         Old: AnySource<Source = S>,
         New: AnySource,
@@ -398,7 +398,7 @@ where
 {
     /// TODO
     #[inline]
-    pub unsafe fn set_source<New>(self, source: New) -> (Gclk<G, New::Source, N>, New::Borrow)
+    pub unsafe fn set_source<New>(self, source: New) -> (Gclk<G, New::Source, N>, New::Lock)
     where
         New: AnySource,
         New::Source: SourceForGclk<G>,
@@ -416,7 +416,7 @@ where
 {
     /// TODO
     #[inline]
-    pub unsafe fn unset_source<Old>(self, source: Old) -> (Gclk<G, NoneT, N>, Old::Release)
+    pub unsafe fn unset_source<Old>(self, source: Old) -> (Gclk<G, NoneT, N>, Old::Unlock)
     where
         Old: AnySource<Source = S>,
     {
@@ -430,7 +430,7 @@ where
         self,
         old: Old,
         new: New,
-    ) -> (Gclk<G, New::Source, N>, Old::Release, New::Borrow)
+    ) -> (Gclk<G, New::Source, N>, Old::Unlock, New::Lock)
     where
         Old: AnySource<Source = S>,
         New: AnySource,
@@ -523,7 +523,7 @@ pub trait AnyGclk
 where
     Self: Sealed,
     Self: Is<Type = SpecificGclk<Self>>,
-    Self: RefCount,
+    Self: LockCount,
 {
     /// TODO
     type GenNum: GenNum;
@@ -564,22 +564,22 @@ impl<G: AnyGclk> AsMut<G> for SpecificGclk<G> {
     }
 }
 
-impl<G, S, N> RefCount for Gclk<G, S, N>
+impl<G, S, N> LockCount for Gclk<G, S, N>
 where
     G: GenNum,
     S: SourceForGclk<G>,
     N: Count + CountOps,
 {
-    type Borrow = Gclk<G, S, N::Add>;
-    type Release = Gclk<G, S, N::Sub>;
+    type Lock = Gclk<G, S, N::Add>;
+    type Unlock = Gclk<G, S, N::Sub>;
 
     #[inline]
-    unsafe fn borrow(self) -> Self::Borrow {
+    unsafe fn lock(self) -> Self::Lock {
         Gclk::create(self.config, self.count.add())
     }
 
     #[inline]
-    unsafe fn release(self) -> Self::Release {
+    unsafe fn unlock(self) -> Self::Unlock {
         Gclk::create(self.config, self.count.sub())
     }
 }

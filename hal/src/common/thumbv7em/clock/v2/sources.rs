@@ -3,7 +3,7 @@
 use crate::pac::gclk::genctrl::SRC_A;
 
 use crate::time::Hertz;
-use crate::typelevel::{Count, CountOps, Is, NoneT, One, RefCount, Sealed, Zero};
+use crate::typelevel::{Count, CountOps, Is, NoneT, One, LockCount, Sealed, Zero};
 
 use super::gclk::GenNum;
 
@@ -39,7 +39,7 @@ impl Sources {
     pub(super) unsafe fn new() -> Sources {
         Sources {
             gclk_io: gclkio::Tokens::new(),
-            dfll: Source::new(Dfll::new()).borrow(),
+            dfll: Source::new(Dfll::new()).lock(),
             dpll0: DpllConfig::default(),
             dpll1: DpllConfig::default(),
             osc_ulp_32k: OscUlp32k::new(),
@@ -52,6 +52,7 @@ impl Sources {
 //==============================================================================
 
 /// TODO
+/// Marker trait for mapping a type to its corresponding SRC_A constant
 pub trait SourceType: Sealed {
     const GCLK_SRC: SRC_A;
     fn freq(&self) -> Hertz;
@@ -74,6 +75,7 @@ impl<S: SourceType> SomeSourceType for S {}
 //==============================================================================
 
 /// TODO
+/// Implemented for sources that can be used by Gclks
 pub trait SourceForGclk<G: GenNum>: SourceType {}
 
 //==============================================================================
@@ -81,6 +83,8 @@ pub trait SourceForGclk<G: GenNum>: SourceType {}
 //==============================================================================
 
 /// TODO
+/// Wrapper struct for different clock sources
+/// Adds lock counting
 pub struct Source<S, N = Zero>
 where
     S: SourceType,
@@ -124,11 +128,12 @@ where
 //==============================================================================
 
 /// TODO
+/// Type family for clock sources
 pub trait AnySource
 where
     Self: Sealed,
     Self: Is<Type = SpecificSource<Self>>,
-    Self: RefCount,
+    Self: LockCount,
 {
     /// TODO
     type Source: SourceType;
@@ -152,33 +157,33 @@ where
 
 impl<S: AnySource> AsRef<S> for SpecificSource<S> {
     fn as_ref(&self) -> &S {
-        // TODO
+        // Always safe because S == SpecificSource<S>
         unsafe { core::mem::transmute(self) }
     }
 }
 
 impl<S: AnySource> AsMut<S> for SpecificSource<S> {
     fn as_mut(&mut self) -> &mut S {
-        // TODO
+        // Always safe because S == SpecificSource<S>
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<S, N> RefCount for Source<S, N>
+impl<S, N> LockCount for Source<S, N>
 where
     S: SourceType,
     N: Count + CountOps,
 {
-    type Borrow = Source<S, N::Add>;
-    type Release = Source<S, N::Sub>;
+    type Lock = Source<S, N::Add>;
+    type Unlock = Source<S, N::Sub>;
 
     #[inline]
-    unsafe fn borrow(self) -> Self::Borrow {
+    unsafe fn lock(self) -> Self::Lock {
         Source::create(self.source, self.count.add())
     }
 
     #[inline]
-    unsafe fn release(self) -> Self::Release {
+    unsafe fn unlock(self) -> Self::Unlock {
         Source::create(self.source, self.count.sub())
     }
 }

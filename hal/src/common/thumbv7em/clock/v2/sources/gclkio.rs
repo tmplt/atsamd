@@ -163,7 +163,7 @@ impl<G: GenNum> GclkOutToken<G> {
     }
 
     /// TODO
-    pub fn enable<H, P>(self, mut gclk: H, pin: P, pol: bool) -> (GclkOut<G, P::Id>, H::Borrow)
+    pub fn enable<H, P>(self, mut gclk: H, pin: P, pol: bool) -> (GclkOut<G, P::Id>, H::Lock)
     where
         H: AnyGclk<GenNum = G>,
         P: AnyPin,
@@ -173,7 +173,7 @@ impl<G: GenNum> GclkOutToken<G> {
         (
             GclkOut::new(self, gclk.as_ref().freq(), pin.into().into_alternate()),
             // TODO
-            unsafe { gclk.borrow() },
+            unsafe { gclk.lock() },
         )
     }
 }
@@ -208,13 +208,13 @@ where
     }
 
     /// TODO
-    pub fn disable<H>(self, mut gclk: H) -> (GclkOutToken<G>, H::Release, Pin<I, AlternateM>)
+    pub fn disable<H>(self, mut gclk: H) -> (GclkOutToken<G>, H::Unlock, Pin<I, AlternateM>)
     where
         H: AnyGclk<GenNum = G>,
     {
         gclk.as_mut().disable_gclk_out();
         // TODO
-        (self.token, unsafe { gclk.release() }, self.pin)
+        (self.token, unsafe { gclk.unlock() }, self.pin)
     }
 }
 

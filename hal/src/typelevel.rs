@@ -51,11 +51,15 @@ where
 }
 
 /// TODO
+/// Local copy of `NonZero` so the compiler can prove it will never be
+/// implemented for U0.
 pub trait NonZero: Unsigned {}
 
 impl<U: Unsigned, B: Bit> NonZero for UInt<U, B> {}
 
 /// TODO
+/// Phantom `Unsigned` typenums, so they can be constructed from generic
+/// parameters
 pub struct Natural<N: Unsigned> {
     n: PhantomData<N>,
 }
@@ -76,11 +80,14 @@ impl<N: Unsigned> Natural<N> {
 }
 
 /// TODO
+/// Compile-time counting
 pub trait Count: Sealed {}
 
 impl<N: Unsigned> Count for Natural<N> {}
 
 /// TODO
+/// `CountOps` must be a separate trait from `Count`
+/// There are other ways to do this, but there are tradeoffs.
 pub trait CountOps: Count {
     /// TODO
     type Add: Count;
@@ -134,23 +141,24 @@ where
 }
 
 /// TODO
-pub trait RefCount {
+/// Trait for compile-time lock counting
+pub trait LockCount {
     /// TODO
-    type Borrow;
+    type Lock;
 
     /// TODO
-    type Release;
+    type Unlock;
 
     /// TODO
-    unsafe fn borrow(self) -> Self::Borrow;
+    unsafe fn lock(self) -> Self::Lock;
 
     /// TODO
-    unsafe fn release(self) -> Self::Release;
+    unsafe fn unlock(self) -> Self::Unlock;
 }
 
 /// TODO
-pub type Borrow<R> = <R as RefCount>::Borrow;
+pub type Lock<R> = <R as LockCount>::Lock;
 
 /// TODO
-pub type Release<R> = <R as RefCount>::Release;
+pub type Unlock<R> = <R as LockCount>::Unlock;
 

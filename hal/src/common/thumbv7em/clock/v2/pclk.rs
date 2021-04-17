@@ -122,11 +122,11 @@ where
 
     /// TODO
     #[inline]
-    pub fn enable<G: AnyGclk>(mut self, gclk: G) -> (Pclk<P, G::GenNum>, G::Borrow) {
+    pub fn enable<G: AnyGclk>(mut self, gclk: G) -> (Pclk<P, G::GenNum>, G::Lock) {
         self.regs.set_source(G::GenNum::GCLK);
         self.regs.enable();
         // TODO
-        (Pclk::new(self, gclk.freq()), unsafe { gclk.borrow() })
+        (Pclk::new(self, gclk.freq()), unsafe { gclk.lock() })
     }
 }
 
@@ -159,13 +159,13 @@ where
 
     /// Disable the peripheral channel clock
     #[inline]
-    pub fn disable<H>(mut self, gclk: H) -> (PclkToken<P>, H::Release)
+    pub fn disable<H>(mut self, gclk: H) -> (PclkToken<P>, H::Unlock)
     where
         H: AnyGclk<GenNum = G>,
     {
         self.token.regs.disable();
         // TODO
-        (self.token, unsafe { gclk.release() })
+        (self.token, unsafe { gclk.unlock() })
     }
 
     //#[inline]
@@ -229,6 +229,7 @@ macro_rules! pclks {
     };
 }
 
+// Try to use existing types as tokens, if possible. Otherwise, create new ones.
 pclks!(
     (false, dfll48, dfll48),
     (true, Pll0, dpll0),
