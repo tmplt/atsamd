@@ -29,8 +29,8 @@ pub fn test() {
     let gclk_in1 = Source::new(gclk_in1);
     // Take the `GclkConfig` for GCLK 1 from the `Clocks` struct
     let gclk1 = clocks.gclks.gclk1;
-    // Use the `GclkIn` as the `Source` for the `GclkConfig`. Doing so "borrows"
-    // the `GclkIn` `Source`. It can't be safely modified until that borrow is
+    // Use the `GclkIn` as the `Source` for the `GclkConfig`. Doing so locks
+    // the `GclkIn` `Source`. It can't be safely modified until that lock is
     // released.
     let (gclk1, _gclk_in1) = gclk1.set_source(gclk_in1);
     // Set the `GclkConfig` divider to 10, which yields a 2.4 MHz output.
@@ -40,7 +40,7 @@ pub fn test() {
     // struct.
     let pclk_dpll0 = clocks.pclks.dpll0;
     // Enable the `PclkToken` using `Gclk` 1 to produce a `Pclk`. Doing so also
-    // "borrows" `Gclk` 1, which can't be safely disabled until the borrow is
+    // locks `Gclk` 1, which can't be safely disabled until the lock is
     // released.
     let (dpll0_src, gclk1) = pclk_dpll0.enable(gclk1);
     // Get the `DpllConfig` for DPLL 0 from the `Clocks` struct
@@ -55,7 +55,7 @@ pub fn test() {
     // Package the `Dpll` as a clock `Source`
     let dpll0 = Source::new(dpll0);
     // Get the `Dfll` from the `Clocks` struct. It is already wrapped in a
-    // `Source` and has one "borrow", because it is used as the main clock at
+    // `Source` and has one lock, because it is used as the main clock at
     // reset.
     let dfll = clocks.sources.dfll;
     // Get `Gclk` 0 from the `Clocks` struct. It is already enabled, using the
@@ -63,8 +63,8 @@ pub fn test() {
     let gclk0 = clocks.gclks.gclk0;
     // Swap the clock `Source` for `Gclk` 0 from the `Dfll` to `Dpll` 0. Doing
     // so is inherently unsafe, because you are altering a running clock.
-    // The `Dfll` borrow is released, so it can now be modified. The `Dpll` 0 is
-    // borrowed, so it cannot.
+    // The `Dfll` lock is released, so it can now be modified. The `Dpll` 0 is
+    // lock, so it cannot.
     let (mut gclk0, _dfll, dpll0) = unsafe { gclk0.swap_source(dfll, dpll0) };
     // Set the `Gclk` 0 divider to 2, which makes the main clock 96 MHz. Doing
     // so is again unsafe, because it is modifying a running clock.
@@ -82,7 +82,7 @@ pub fn test() {
     // Get the `GclkOutToken` for `Gclk` 3 from the `Clocks` struct
     let gclk_out3 = clocks.sources.gclk_io.gclk_out3;
     // Enable the `GclkOutToken` using pin PB17 to produce a `GclkOut`. Set the
-    // off value of the output clock to low. This borrows `Gclk` 3, so it can't
+    // off value of the output clock to low. This locks `Gclk` 3, so it can't
     // be safely disabled.
     let (_gclk_out3, _gclk3) = gclk_out3.enable(gclk3, pins.pb17, false);
 }
