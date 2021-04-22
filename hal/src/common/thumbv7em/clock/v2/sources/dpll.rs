@@ -321,7 +321,7 @@ where
     /// TODO
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.freq.0 * self.mult as u32 * self.frac as u32 / self.div as u32 / 32)
+        Hertz(self.freq.0 / self.div as u32 * (self.mult as u32 + 1 + self.frac as u32 / 32))
     }
 
     /// TODO
