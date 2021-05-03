@@ -100,8 +100,7 @@ impl Registers {
     #[allow(dead_code)]
     #[inline]
     fn set_multiplication_factor(&mut self, value: u16) {
-        self.dfllmul()
-            .modify(|_, w| unsafe { w.mul().bits(value) });
+        self.dfllmul().modify(|_, w| unsafe { w.mul().bits(value) });
         self.wait_sync_dfllmul();
     }
 }
@@ -208,8 +207,10 @@ impl<T: PclkSourceType> DfllConfig<ClosedMode<T>> {
     }
     pub fn enable(mut self) -> Dfll<ClosedMode<T>> {
         self.regs.set_fine_maximum_step(self.mode.fine_maximum_step);
-        self.regs.set_coarse_maximum_step(self.mode.coarse_maximum_step);
-        self.regs.set_multiplication_factor(self.multiplication_factor);
+        self.regs
+            .set_coarse_maximum_step(self.mode.coarse_maximum_step);
+        self.regs
+            .set_multiplication_factor(self.multiplication_factor);
         self.regs.set_closed_mode();
         Dfll::new(self)
     }
@@ -296,18 +297,48 @@ where
 // GclkSource
 //==============================================================================
 
-pub enum Fll {}
-
-impl Sealed for Fll {}
-
-impl GclkSourceType for Fll {
-    const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
-}
-
-impl<G: GenNum, TMode: Mode, N: Count> GclkSource<G> for Dfll<TMode, N> {
-    type Type = Fll;
+impl<G: GenNum, N: Count> GclkSource<G> for Dfll<OpenMode, N> {
+    type Type = marker::Dfll<OpenMode>;
     #[inline]
     fn freq(&self) -> Hertz {
         self.freq()
+    }
+}
+
+impl<G: GenNum, T: PclkSourceType, N: Count> GclkSource<G> for Dfll<ClosedMode<T>, N> {
+    type Type = marker::Dfll<marker::ClosedMode>;
+    #[inline]
+    fn freq(&self) -> Hertz {
+        self.freq()
+    }
+}
+
+pub mod marker {
+    use super::{GclkSourceEnum, GclkSourceType, Sealed};
+    use core::marker::PhantomData;
+
+    pub trait ModeMarker: Sealed {}
+    /// TODO
+    /// super::ClosedMode type is polluted with a generic parameter describing
+    /// reference clock. It is undesirable to have a marker type owned by a
+    /// Gclk that knows about source of its source.
+    /// This is a reason for existence of this type.
+    pub struct ClosedMode {
+        __: (),
+    }
+
+    impl Sealed for ClosedMode {}
+    impl ModeMarker for ClosedMode {}
+
+    impl ModeMarker for super::OpenMode {}
+
+    pub struct Dfll<T: ModeMarker> {
+        __: PhantomData<T>,
+    }
+
+    impl<T: ModeMarker> Sealed for Dfll<T> {}
+
+    impl<T: ModeMarker> GclkSourceType for Dfll<T> {
+        const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
     }
 }
