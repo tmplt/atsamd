@@ -8,13 +8,14 @@ use seq_macro::seq;
 use crate::pac;
 use crate::pac::NVMCTRL;
 
-pub use crate::pac::gclk::{GENCTRL, RegisterBlock};
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
+pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use crate::time::Hertz;
-use crate::typelevel::{Count, Increment, Decrement, Lockable, Unlockable, Is, Sealed, Zero, One};
+use crate::typelevel::{Count, Decrement, Increment, Is, Lockable, One, Sealed, Unlockable, Zero};
 
-use super::sources::dfll::Fll;
+use crate::clock::v2::pclk::{Dfll48, Pclk, PclkSourceType};
+use crate::clock::v2::sources::dfll::{marker, ClosedMode, Dfll, OpenMode};
 
 //==============================================================================
 // Registers
@@ -226,7 +227,7 @@ where
     div: u32,
 }
 
-impl GclkConfig<Gen0, Fll> {
+impl GclkConfig<Gen0, marker::Dfll<OpenMode>> {
     unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let token = GclkToken::new();
         GclkConfig {
@@ -284,7 +285,11 @@ where
 {
     /// TODO
     #[inline]
-    pub fn swap<Old, New>(self, old: Old, new: New) -> (GclkConfig<G, New::Type>, Old::Unlocked, New::Locked)
+    pub fn swap<Old, New>(
+        self,
+        old: Old,
+        new: New,
+    ) -> (GclkConfig<G, New::Type>, Old::Unlocked, New::Locked)
     where
         Old: GclkSource<G, Type = T> + Unlockable,
         New: GclkSource<G> + Lockable,
@@ -338,7 +343,7 @@ where
     count: N,
 }
 
-impl Gclk0<Fll, One> {
+impl Gclk0<marker::Dfll<OpenMode>, One> {
     pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let config = GclkConfig::init(freq);
         let count = One::new();
@@ -359,6 +364,56 @@ where
     }
 }
 
+impl<T: GclkSourceType> Gclk<Gen0, T, One> {
+    /// TODO
+    #[inline]
+    pub unsafe fn swap<Old, New>(
+        self,
+        old: Old,
+        new: New,
+    ) -> (Gclk<Gen0, New::Type, One>, Old::Unlocked, New::Locked)
+    where
+        Old: GclkSource<Gen0, Type = T> + Unlockable,
+        New: GclkSource<Gen0> + Lockable,
+    {
+        let (config, old, new) = self.config.swap(old, new);
+        (Gclk::create(config, self.count), old, new)
+    }
+}
+
+impl Gclk<Gen0, marker::Dfll<OpenMode>, One> {
+    pub unsafe fn change_mode<T: PclkSourceType>(
+        self,
+        old: Dfll<OpenMode, One>,
+        exchange: impl FnOnce(Dfll<OpenMode>) -> Dfll<ClosedMode<T>>,
+    ) -> (
+        Gclk<Gen0, marker::Dfll<marker::ClosedMode>, One>,
+        Dfll<ClosedMode<T>, One>,
+    ) {
+        let (token, old) = self.config.free(old);
+        let new = exchange(old);
+        let (config, new) = GclkConfig::new(token, new);
+        (Gclk::create(config, self.count), new)
+    }
+}
+
+impl Gclk<Gen0, marker::Dfll<marker::ClosedMode>, One> {
+    pub unsafe fn change_mode<T: PclkSourceType>(
+        self,
+        old: Dfll<ClosedMode<T>, One>,
+        exchange: impl FnOnce(Dfll<ClosedMode<T>>) -> (Dfll<OpenMode>, Pclk<Dfll48, T>),
+    ) -> (
+        Gclk<Gen0, marker::Dfll<OpenMode>, One>,
+        Dfll<OpenMode, One>,
+        Pclk<Dfll48, T>,
+    ) {
+        let (token, old) = self.config.free(old);
+        let (new, pclk) = exchange(old);
+        let (config, new) = GclkConfig::new(token, new);
+        (Gclk::create(config, self.count), new, pclk)
+    }
+}
+
 impl<G, T, N> Gclk<G, T, N>
 where
     G: GenNum,
@@ -375,17 +430,6 @@ where
     pub unsafe fn disable_unchecked(mut self) -> GclkConfig<G, T> {
         self.config.token.disable();
         self.config
-    }
-
-    /// TODO
-    #[inline]
-    pub unsafe fn swap<Old, New>(self, old: Old, new: New) -> (Gclk<G, New::Type, N>, Old::Unlocked, New::Locked)
-    where
-        Old: GclkSource<G, Type = T> + Unlockable,
-        New: GclkSource<G> + Lockable,
-    {
-        let (config, old, new) = self.config.swap(old, new);
-        (Gclk::create(config, self.count), old, new)
     }
 
     /// TODO
@@ -468,7 +512,6 @@ seq!(G in 0..=11 {
 impl GclkSourceType for Gen1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKGEN1;
 }
-
 
 macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {
