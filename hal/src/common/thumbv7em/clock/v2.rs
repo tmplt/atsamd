@@ -52,7 +52,7 @@ impl Tokens {
         gclk: GCLK,
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
-    ) -> (Gclk0<Fll, One>, Dfll<One>, Tokens) {
+    ) -> (Gclk0<Fll, One>, Dfll<OpenMode, One>, Tokens) {
         // TODO
         unsafe {
             let tokens = Tokens {
