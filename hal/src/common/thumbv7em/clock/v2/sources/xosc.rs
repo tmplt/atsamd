@@ -1,15 +1,14 @@
 use core::marker::PhantomData;
 
-use crate::pac::gclk::genctrl::SRC_A;
-use crate::pac::oscctrl::xoscctrl::STARTUP_A;
+use crate::pac::oscctrl::xoscctrl::{CFDPRESC_A, STARTUP_A};
 use crate::pac::oscctrl::{RegisterBlock, XOSCCTRL};
 
 use crate::gpio::v2::{AnyPin, FloatingDisabled, OptionalPin, Pin, PinId, PA14, PA15, PB22, PB23};
 use crate::time::Hertz;
-use crate::typelevel::{NoneT, Sealed};
+use crate::typelevel::{Count, Decrement, Increment, Lockable, NoneT, Sealed, Unlockable, Zero};
 
-use super::super::gclk::{GenNum, GclkSource, GclkSourceType};
-use super::dpll::{DpllSrc, DpllSource, DpllSourceType};
+use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
+use super::dpll::{DpllSource, DpllSourceType, DpllSrc};
 
 //==============================================================================
 // XOscNum
@@ -47,18 +46,55 @@ impl XOscNum for Osc1 {
     type XOut = PB23;
 }
 
+#[derive(Debug, Clone, PartialEq)]
+/// Current mutliplier/reference pair
+pub enum CrystalCurrent {
+    /// 8MHz
+    BaseFreq,
+    /// 8 to 16MHz
+    LowFreq,
+    /// 16 to 24MHz
+    MedFreq,
+    /// 244 to 48MHz
+    HighFreq,
+}
+
+impl CrystalCurrent {
+    /// Get the current multiplier
+    pub fn imult(&self) -> u8 {
+        match &self {
+            Self::BaseFreq => 3,
+            Self::LowFreq => 4,
+            Self::MedFreq => 5,
+            Self::HighFreq => 6,
+        }
+    }
+
+    /// Get the current reference
+    pub fn iptat(&self) -> u8 {
+        match &self {
+            Self::BaseFreq => 2,
+            Self::LowFreq => 3,
+            Self::MedFreq => 3,
+            Self::HighFreq => 3,
+        }
+    }
+}
+
 //==============================================================================
 // Registers
 //==============================================================================
 
-struct Registers<X: XOscNum> {
+pub type XOscToken<X> = Registers<X>;
+
+pub struct Registers<X: XOscNum> {
     osc: PhantomData<X>,
 }
 
 impl<X: XOscNum> Registers<X> {
     /// TODO
     #[inline]
-    unsafe fn new() -> Self {
+    pub(super) unsafe fn new() -> Self {
         Self { osc: PhantomData }
     }
 
@@ -112,6 +148,32 @@ impl<X: XOscNum> Registers<X> {
         let mask = 1 << X::NUM;
         while self.oscctrl().status.read().bits() & mask == 0 {}
     }
+
+    #[inline]
+    fn set_clock_failure_detector_prescaler(&mut self, prescale: CFDPRESC_A) {
+        self.xoscctrl()
+            .modify(|_, w| w.cfdpresc().variant(prescale));
+    }
+    #[inline]
+    fn set_imult(&mut self, cc: CrystalCurrent) {
+        self.xoscctrl()
+            .modify(|_, w| unsafe { w.imult().bits(cc.imult()) });
+    }
+    #[inline]
+    fn set_iptat(&mut self, cc: CrystalCurrent) {
+        self.xoscctrl()
+            .modify(|_, w| unsafe { w.iptat().bits(cc.iptat()) });
+    }
+    #[inline]
+    fn set_clock_switch(&mut self, swben: bool) {
+        self.xoscctrl().modify(|_, w| w.swben().bit(swben));
+    }
+
+    #[inline]
+    fn set_low_buf_gain(&mut self, lowbufgain: bool) {
+        self.xoscctrl()
+            .modify(|_, w| w.lowbufgain().bit(lowbufgain));
+    }
 }
 
 //==============================================================================
@@ -136,7 +198,7 @@ where
     X: XOscNum,
     P: OptionalPin,
 {
-    regs: Registers<X>,
+    token: XOscToken<X>,
     xin: XIn<X>,
     xout: P,
     freq: Hertz,
@@ -145,13 +207,16 @@ where
 impl<X: XOscNum> XOscConfig<X> {
     /// TODO
     #[inline]
-    pub fn from_clock(xin: impl AnyPin<Id = X::XIn>, freq: impl Into<Hertz>) -> Self {
+    pub fn from_clock(
+        mut token: XOscToken<X>,
+        xin: impl AnyPin<Id = X::XIn>,
+        freq: impl Into<Hertz>,
+    ) -> Self {
         let xin = xin.into().into_floating_disabled();
-        let mut regs = unsafe { Registers::new() };
-        regs.from_clock();
+        token.from_clock();
         // TODO
         Self {
-            regs,
+            token,
             xin,
             xout: NoneT,
             freq: freq.into(),
@@ -160,8 +225,8 @@ impl<X: XOscNum> XOscConfig<X> {
 
     /// TODO
     #[inline]
-    pub fn free(self) -> XIn<X> {
-        self.xin
+    pub fn free(self) -> (XOscToken<X>, XIn<X>) {
+        (self.token, self.xin)
     }
 }
 
@@ -169,17 +234,17 @@ impl<X: XOscNum> XOscConfig<X, XOut<X>> {
     /// TODO
     #[inline]
     pub fn from_crystal(
+        mut token: XOscToken<X>,
         xin: impl AnyPin<Id = X::XIn>,
         xout: impl AnyPin<Id = X::XOut>,
         freq: impl Into<Hertz>,
     ) -> Self {
         let xin = xin.into().into_floating_disabled();
         let xout = xout.into().into_floating_disabled();
-        let mut regs = unsafe { Registers::new() };
         // TODO
-        regs.from_crystal();
+        token.from_crystal();
         Self {
-            regs,
+            token,
             xin,
             xout,
             freq: freq.into(),
@@ -188,8 +253,8 @@ impl<X: XOscNum> XOscConfig<X, XOut<X>> {
 
     /// TODO
     #[inline]
-    pub fn free(self) -> (XIn<X>, XOut<X>) {
-        (self.xin, self.xout)
+    pub fn free(self) -> (XOscToken<X>, XIn<X>, XOut<X>) {
+        (self.token, self.xin, self.xout)
     }
 }
 
@@ -206,28 +271,37 @@ where
 
     /// TODO
     #[inline]
-    pub fn set_start_up(&mut self, start_up: StartUp) {
-        self.regs.set_start_up(start_up);
+    pub fn set_start_up(mut self, start_up: StartUp) -> Self {
+        self.token.set_start_up(start_up);
+        self
     }
 
     /// TODO
     #[inline]
-    pub fn set_on_demand(&mut self, on_demand: bool) {
-        self.regs.set_on_demand(on_demand);
+    pub fn set_on_demand(mut self, on_demand: bool) -> Self {
+        self.token.set_on_demand(on_demand);
+        self
     }
 
     /// TODO
     #[inline]
-    pub fn set_run_standby(&mut self, run_standby: bool) {
-        self.regs.set_run_standby(run_standby);
+    pub fn set_run_standby(mut self, run_standby: bool) -> Self {
+        self.token.set_run_standby(run_standby);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn set_clock_failure_detector_prescaler(mut self, prescale: CFDPRESC_A) -> Self {
+        self.token.set_clock_failure_detector_prescaler(prescale);
+        self
     }
 
     /// TODO
     #[inline]
     pub fn enable(mut self) -> XOsc<X, P> {
-        self.regs.enable();
-        self.regs.wait_ready();
-        XOsc { config: self }
+        self.token.enable();
+        XOsc::new(self)
     }
 }
 
@@ -235,12 +309,28 @@ where
 // XOsc
 //==============================================================================
 
-pub struct XOsc<X, P = NoneT>
+pub struct XOsc<X, P = NoneT, N = Zero>
 where
     X: XOscNum,
     P: OptionalPin,
+    N: Count,
 {
     config: XOscConfig<X, P>,
+    count: N,
+}
+///
+/// TODO
+pub type XOsc0<P = NoneT> = XOsc<Osc0, P>;
+
+/// TODO
+pub type XOsc1<P = NoneT> = XOsc<Osc1, P>;
+
+impl<X, P, N> Sealed for XOsc<X, P, N>
+where
+    X: XOscNum,
+    P: OptionalPin,
+    N: Count,
+{
 }
 
 impl<X, P> XOsc<X, P>
@@ -250,48 +340,94 @@ where
 {
     /// TODO
     #[inline]
-    pub fn freq(&self) -> Hertz {
-        self.config.freq()
+    fn new(config: XOscConfig<X, P>) -> Self {
+        let count = Zero::new();
+        XOsc { config, count }
     }
 
     /// TODO
     #[inline]
     pub fn disable(mut self) -> XOscConfig<X, P> {
-        self.config.regs.disable();
+        self.config.token.disable();
         self.config
     }
 }
 
-/// TODO
-pub type XOsc0<P = NoneT> = XOsc<Osc0, P>;
+impl<X, P, N> XOsc<X, P, N>
+where
+    X: XOscNum,
+    P: OptionalPin,
+    N: Count,
+{
+    /// TODO
+    #[inline]
+    fn create(config: XOscConfig<X, P>, count: N) -> Self {
+        XOsc { config, count }
+    }
 
-/// TODO
-pub type XOsc1<P = NoneT> = XOsc<Osc1, P>;
+    /// TODO
+    #[inline]
+    pub fn wait_ready(&self) {
+        self.config.token.wait_ready();
+    }
+
+    /// TODO
+    #[inline]
+    pub fn freq(&self) -> Hertz {
+        self.config.freq()
+    }
+}
+
+//==============================================================================
+// Lockable
+//==============================================================================
+
+impl<X, P, N> Lockable for XOsc<X, P, N>
+where
+    X: XOscNum,
+    P: OptionalPin,
+    N: Increment,
+{
+    type Locked = XOsc<X, P, N::Inc>;
+    fn lock(self) -> Self::Locked {
+        XOsc::create(self.config, self.count.inc())
+    }
+}
+
+//==============================================================================
+// Unlockable
+//==============================================================================
+
+impl<X, P, N> Unlockable for XOsc<X, P, N>
+where
+    X: XOscNum,
+    P: OptionalPin,
+    N: Decrement,
+{
+    type Unlocked = XOsc<X, P, N::Dec>;
+    fn unlock(self) -> Self::Unlocked {
+        XOsc::create(self.config, self.count.dec())
+    }
+}
 
 //==============================================================================
 // GclkSource
 //==============================================================================
 
 impl GclkSourceType for Osc0 {
-    const GCLK_SRC: SRC_A = SRC_A::XOSC0;
+    const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
 impl GclkSourceType for Osc1 {
-    const GCLK_SRC: SRC_A = SRC_A::XOSC1;
+    const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
 
-impl<X, P> Sealed for XOsc<X, P>
-where
-    X: XOscNum,
-    P: OptionalPin,
-{
-}
-
-impl<G, X, P> GclkSource<G> for XOsc<X, P>
+impl<G, X, P, N> GclkSource<G> for XOsc<X, P, N>
 where
     G: GenNum,
     X: XOscNum + GclkSourceType,
     P: OptionalPin,
+    N: Count,
 {
     type Type = X;
 
@@ -313,10 +449,11 @@ impl DpllSourceType for Osc1 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC1;
 }
 
-impl<X, P> DpllSource for XOsc<X, P>
+impl<X, P, N> DpllSource for XOsc<X, P, N>
 where
     X: XOscNum + DpllSourceType,
     P: OptionalPin,
+    N: Count,
 {
     type Type = X;
 
