@@ -155,14 +155,11 @@ impl<X: XOscNum> Registers<X> {
             .modify(|_, w| w.cfdpresc().variant(prescale));
     }
     #[inline]
-    fn set_imult(&mut self, cc: CrystalCurrent) {
-        self.xoscctrl()
-            .modify(|_, w| unsafe { w.imult().bits(cc.imult()) });
-    }
-    #[inline]
-    fn set_iptat(&mut self, cc: CrystalCurrent) {
-        self.xoscctrl()
-            .modify(|_, w| unsafe { w.iptat().bits(cc.iptat()) });
+    fn set_crystal_current(&mut self, cc: CrystalCurrent) {
+        self.xoscctrl().modify(|_, w| unsafe {
+            w.imult().bits(cc.imult());
+            w.iptat().bits(cc.iptat())
+        });
     }
     #[inline]
     fn set_clock_switch(&mut self, swben: bool) {
@@ -294,6 +291,13 @@ where
     #[inline]
     pub fn set_clock_failure_detector_prescaler(mut self, prescale: CFDPRESC_A) -> Self {
         self.token.set_clock_failure_detector_prescaler(prescale);
+        self
+    }
+
+    /// TODO
+    #[inline]
+    pub fn set_crystal_current(mut self, crystal_current: CrystalCurrent) -> Self {
+        self.token.set_crystal_current(crystal_current);
         self
     }
 
