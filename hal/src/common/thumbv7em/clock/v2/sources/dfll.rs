@@ -1,7 +1,10 @@
 use crate::pac::oscctrl::RegisterBlock;
 
 use crate::time::{Hertz, U32Ext};
-use crate::typelevel::{Lockable, Unlockable, Increment, Decrement, Count, Zero, One, Sealed};
+use crate::typelevel::{
+    Count, Decrement, Increment, Lockable, One, Sealed, SealedLockable, SealedUnlockable,
+    Unlockable, Zero,
+};
 
 use super::super::gclk::{GenNum, GclkSourceEnum, GclkSource, GclkSourceType};
 
@@ -49,12 +52,11 @@ impl Dfll<One> {
 
 impl<N: Count> Sealed for Dfll<N> {}
 
-
 //==============================================================================
 // Lockable
 //==============================================================================
 
-impl<N> Lockable for Dfll<N>
+impl<N> SealedLockable for Dfll<N>
 where
     N: Increment,
 {
@@ -66,11 +68,13 @@ where
     }
 }
 
+impl<N> Lockable for Dfll<N> where N: Increment {}
+
 //==============================================================================
 // Unlockable
 //==============================================================================
 
-impl<N> Unlockable for Dfll<N>
+impl<N> SealedUnlockable for Dfll<N>
 where
     N: Decrement,
 {
@@ -81,6 +85,8 @@ where
         Dfll { regs, count }
     }
 }
+
+impl<N> Unlockable for Dfll<N> where N: Decrement {}
 
 //==============================================================================
 // GclkSource

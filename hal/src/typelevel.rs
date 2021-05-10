@@ -9,9 +9,27 @@ mod private {
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
+
+    pub trait Lockable {
+        type Locked;
+        fn lock(self) -> Self::Locked;
+    }
+
+    pub trait Unlockable {
+        type Unlocked;
+        fn unlock(self) -> Self::Unlocked;
+    }
 }
 
+pub(crate) use private::Lockable as SealedLockable;
 pub(crate) use private::Sealed;
+pub(crate) use private::Unlockable as SealedUnlockable;
+
+/// TODO
+pub trait Lockable: SealedLockable {}
+
+/// TODO
+pub trait Unlockable: SealedUnlockable {}
 
 /// Type-level version of the [`None`] variant
 pub struct NoneT;
@@ -152,21 +170,3 @@ pub trait GreaterThanOne {}
 impl<U: Unsigned, X: Bit, Y: Bit> GreaterThanOne for UInt<UInt<U, X>, Y> {}
 
 impl<N: Unsigned + GreaterThanOne> GreaterThanOne for Natural<N> {}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-pub trait Lockable {
-    type Locked;
-    fn lock(self) -> Self::Locked;
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-pub trait Unlockable {
-    type Unlocked;
-    fn unlock(self) -> Self::Unlocked;
-}

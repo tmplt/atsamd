@@ -7,8 +7,11 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
-use crate::time::{Hertz};
-use crate::typelevel::{Sealed, Count, Zero, Increment, Decrement, Lockable, Unlockable};
+use crate::time::Hertz;
+use crate::typelevel::{
+    Count, Decrement, Increment, Lockable, Sealed, SealedLockable, SealedUnlockable, Unlockable,
+    Zero,
+};
 
 use super::super::gclk::{GenNum, GclkSourceEnum, GclkSource, GclkSourceType};
 use super::super::pclk::{Pclk, PclkType, PclkSourceType};
@@ -417,7 +420,7 @@ where
 // Lockable
 //==============================================================================
 
-impl<D, T, N> Lockable for Dpll<D, T, N>
+impl<D, T, N> SealedLockable for Dpll<D, T, N>
 where
     D: DpllNum,
     T: DpllSourceType,
@@ -429,11 +432,19 @@ where
     }
 }
 
+impl<D, T, N> Lockable for Dpll<D, T, N>
+where
+    D: DpllNum,
+    T: DpllSourceType,
+    N: Increment,
+{
+}
+
 //==============================================================================
 // Unlockable
 //==============================================================================
 
-impl<D, T, N> Unlockable for Dpll<D, T, N>
+impl<D, T, N> SealedUnlockable for Dpll<D, T, N>
 where
     D: DpllNum,
     T: DpllSourceType,
@@ -443,6 +454,14 @@ where
     fn unlock(self) -> Self::Unlocked {
         Dpll::create(self.config, self.count.dec())
     }
+}
+
+impl<D, T, N> Unlockable for Dpll<D, T, N>
+where
+    D: DpllNum,
+    T: DpllSourceType,
+    N: Decrement,
+{
 }
 
 //==============================================================================

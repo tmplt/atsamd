@@ -124,7 +124,7 @@ where
 // Lockable
 //==============================================================================
 
-impl<G, I, N> Lockable for GclkIn<G, I, N>
+impl<G, I, N> SealedLockable for GclkIn<G, I, N>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -138,11 +138,19 @@ where
     }
 }
 
+impl<G, I, N> Lockable for GclkIn<G, I, N>
+where
+    G: GenNum,
+    I: GclkIo<G>,
+    N: Increment,
+{
+}
+
 //==============================================================================
 // Unlockable
 //==============================================================================
 
-impl<G, I, N> Unlockable for GclkIn<G, I, N>
+impl<G, I, N> SealedUnlockable for GclkIn<G, I, N>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -154,6 +162,14 @@ where
         let count = count.dec();
         GclkIn { token, pin, freq, count }
     }
+}
+
+impl<G, I, N> Unlockable for GclkIn<G, I, N>
+where
+    G: GenNum,
+    I: GclkIo<G>,
+    N: Decrement,
+{
 }
 
 //==============================================================================

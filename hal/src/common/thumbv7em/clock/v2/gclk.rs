@@ -12,7 +12,10 @@ pub use crate::pac::gclk::{GENCTRL, RegisterBlock};
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 
 use crate::time::Hertz;
-use crate::typelevel::{Count, Increment, Decrement, Lockable, Unlockable, Is, Sealed, Zero, One};
+use crate::typelevel::{
+    Count, Decrement, Increment, Is, Lockable, One, Sealed, SealedLockable, SealedUnlockable,
+    Unlockable, Zero,
+};
 
 use super::sources::dfll::Fll;
 
@@ -429,7 +432,7 @@ where
 // Lockable
 //==============================================================================
 
-impl<G, T, N> Lockable for Gclk<G, T, N>
+impl<G, T, N> SealedLockable for Gclk<G, T, N>
 where
     G: GenNum,
     T: GclkSourceType,
@@ -441,11 +444,19 @@ where
     }
 }
 
+impl<G, T, N> Lockable for Gclk<G, T, N>
+where
+    G: GenNum,
+    T: GclkSourceType,
+    N: Increment,
+{
+}
+
 //==============================================================================
 // Unlockable
 //==============================================================================
 
-impl<G, T, N> Unlockable for Gclk<G, T, N>
+impl<G, T, N> SealedUnlockable for Gclk<G, T, N>
 where
     G: GenNum,
     T: GclkSourceType,
@@ -455,6 +466,14 @@ where
     fn unlock(self) -> Self::Unlocked {
         Gclk::create(self.config, self.count.dec())
     }
+}
+
+impl<G, T, N> Unlockable for Gclk<G, T, N>
+where
+    G: GenNum,
+    T: GclkSourceType,
+    N: Decrement,
+{
 }
 
 //==============================================================================
@@ -473,7 +492,6 @@ seq!(G in 0..=11 {
 impl GclkSourceType for Gen1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKGEN1;
 }
-
 
 macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {
