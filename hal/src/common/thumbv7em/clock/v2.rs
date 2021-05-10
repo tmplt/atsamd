@@ -53,8 +53,8 @@ impl Tokens {
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
     ) -> (
-        Gclk0<marker::Dfll<OpenMode>, One>,
-        Dfll<OpenMode, One>,
+        Gclk0<marker::Dfll<OpenLoop>, One>,
+        Dfll<OpenLoop, One>,
         Tokens,
     ) {
         // TODO

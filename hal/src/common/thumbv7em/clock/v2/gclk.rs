@@ -15,7 +15,7 @@ use crate::time::Hertz;
 use crate::typelevel::{Count, Decrement, Increment, Is, Lockable, One, Sealed, Unlockable, Zero};
 
 use crate::clock::v2::pclk::{Dfll48, Pclk, PclkSourceType};
-use crate::clock::v2::sources::dfll::{marker, ClosedMode, Dfll, OpenMode};
+use crate::clock::v2::sources::dfll::{marker, ClosedLoop, Dfll, OpenLoop};
 
 //==============================================================================
 // Registers
@@ -227,7 +227,7 @@ where
     div: u32,
 }
 
-impl GclkConfig<Gen0, marker::Dfll<OpenMode>> {
+impl GclkConfig<Gen0, marker::Dfll<OpenLoop>> {
     unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let token = GclkToken::new();
         GclkConfig {
@@ -343,7 +343,7 @@ where
     count: N,
 }
 
-impl Gclk0<marker::Dfll<OpenMode>, One> {
+impl Gclk0<marker::Dfll<OpenLoop>, One> {
     pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let config = GclkConfig::init(freq);
         let count = One::new();
@@ -381,14 +381,14 @@ impl<T: GclkSourceType> Gclk<Gen0, T, One> {
     }
 }
 
-impl Gclk<Gen0, marker::Dfll<OpenMode>, One> {
+impl Gclk<Gen0, marker::Dfll<OpenLoop>, One> {
     pub unsafe fn change_mode<T: PclkSourceType>(
         self,
-        old: Dfll<OpenMode, One>,
-        exchange: impl FnOnce(Dfll<OpenMode>) -> Dfll<ClosedMode<T>>,
+        old: Dfll<OpenLoop, One>,
+        exchange: impl FnOnce(Dfll<OpenLoop>) -> Dfll<ClosedLoop<T>>,
     ) -> (
-        Gclk<Gen0, marker::Dfll<marker::ClosedMode>, One>,
-        Dfll<ClosedMode<T>, One>,
+        Gclk<Gen0, marker::Dfll<marker::ClosedLoop>, One>,
+        Dfll<ClosedLoop<T>, One>,
     ) {
         let (token, old) = self.config.free(old);
         let new = exchange(old);
@@ -397,14 +397,14 @@ impl Gclk<Gen0, marker::Dfll<OpenMode>, One> {
     }
 }
 
-impl Gclk<Gen0, marker::Dfll<marker::ClosedMode>, One> {
+impl Gclk<Gen0, marker::Dfll<marker::ClosedLoop>, One> {
     pub unsafe fn change_mode<T: PclkSourceType>(
         self,
-        old: Dfll<ClosedMode<T>, One>,
-        exchange: impl FnOnce(Dfll<ClosedMode<T>>) -> (Dfll<OpenMode>, Pclk<Dfll48, T>),
+        old: Dfll<ClosedLoop<T>, One>,
+        exchange: impl FnOnce(Dfll<ClosedLoop<T>>) -> (Dfll<OpenLoop>, Pclk<Dfll48, T>),
     ) -> (
-        Gclk<Gen0, marker::Dfll<OpenMode>, One>,
-        Dfll<OpenMode, One>,
+        Gclk<Gen0, marker::Dfll<OpenLoop>, One>,
+        Dfll<OpenLoop, One>,
         Pclk<Dfll48, T>,
     ) {
         let (token, old) = self.config.free(old);
