@@ -173,6 +173,9 @@ impl DfllConfig<OpenMode> {
         self.regs.enable();
         Dfll::new(self)
     }
+    pub fn free(self) -> Registers {
+        self.regs
+    }
 }
 
 impl<T: PclkSourceType> DfllConfig<ClosedMode<T>> {
@@ -213,6 +216,9 @@ impl<T: PclkSourceType> DfllConfig<ClosedMode<T>> {
             .set_multiplication_factor(self.multiplication_factor);
         self.regs.set_closed_mode();
         Dfll::new(self)
+    }
+    pub fn free(self) -> (Registers, Pclk<Dfll48, T>) {
+        (self.regs, self.mode.reference_clk)
     }
 }
 
