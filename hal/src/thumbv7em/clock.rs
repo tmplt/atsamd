@@ -5,7 +5,7 @@ pub mod v2;
 
 #[cfg(feature = "min-samd51n")]
 pub fn test() {
-    use crate::clock::v2::{gclk, Tokens, GclkIn, GclkConfig, Pclk, DpllConfig, GclkOut};
+    use crate::clock::v2::{gclk, DpllConfig, GclkConfig, GclkIn, GclkOut, Pclk, Tokens};
     use crate::gpio::v2::Pins;
     use crate::pac::Peripherals;
     use crate::time::U32Ext;
@@ -25,7 +25,7 @@ pub fn test() {
     let pins = Pins::new(peripherals.PORT);
 
     // Enable pin PA27 as an external source for Gclk1 at 24 MHz
-    let gclk_in1 = GclkIn::new(tokens.sources.gclk_io.gclk_in1, pins.pa27, 24.mhz());
+    let gclk_in1 = GclkIn::enable(tokens.sources.gclk_io.gclk_in1, pins.pa27, 24.mhz());
 
     // Set Gclk1 to use GclkIn1 divided by 10 = 2.4 MHz
     let (gclk1, _gclk_in1) = GclkConfig::new(tokens.gclks.gclk1, gclk_in1);

@@ -11,7 +11,8 @@ pub use crate::pac::gclk::pchctrl::GEN_A as PclkSourceEnum;
 
 use crate::sercom::*;
 use crate::time::Hertz;
-use crate::typelevel::{Sealed, Lockable, Unlockable};
+use crate::typelevel::counted::Counted;
+use crate::typelevel::{Count, Decrement, Increment, Sealed};
 
 use super::gclk::*;
 use super::sources::dpll::{Pll0, Pll1};
@@ -109,16 +110,21 @@ seq!(N in 0..=11 {
 });
 
 /// TODO
-pub trait PclkSource: AnyGclk<GenNum = <Self as PclkSource>::Type> {
+pub trait PclkSource {
     type Type: PclkSourceType;
+    fn freq(&self) -> Hertz;
 }
 
-impl<G> PclkSource for G
+impl<G, N> PclkSource for Counted<G, N>
 where
     G: AnyGclk,
     G::GenNum: PclkSourceType,
+    N: Count,
 {
     type Type = G::GenNum;
+    fn freq(&self) -> Hertz {
+        self.0.as_ref().freq()
+    }
 }
 
 //==============================================================================
@@ -150,29 +156,29 @@ where
 
     /// TODO
     #[inline]
-    pub fn new<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Locked)
+    pub fn new<S>(mut token: PclkToken<P>, gclk: S) -> (Self, S::Inc)
     where
-        S: PclkSource<Type = T> + Lockable,
+        S: PclkSource<Type = T> + Increment,
     {
         token.set_source(T::PCLK_SRC);
         token.enable();
-        let freq = gclk.as_ref().freq();
+        let freq = gclk.freq();
         let pclk = Pclk {
             token,
             src: PhantomData,
             freq,
         };
-        (pclk, gclk.lock())
+        (pclk, gclk.inc())
     }
 
     /// Disable the peripheral channel clock
     #[inline]
-    pub fn disable<S>(mut self, gclk: S) -> (PclkToken<P>, S::Unlocked)
+    pub fn disable<S>(mut self, gclk: S) -> (PclkToken<P>, S::Dec)
     where
-        S: PclkSource<Type = T> + Unlockable,
+        S: PclkSource<Type = T> + Decrement,
     {
         self.token.disable();
-        (self.token, gclk.unlock())
+        (self.token, gclk.dec())
     }
 
     //#[inline]

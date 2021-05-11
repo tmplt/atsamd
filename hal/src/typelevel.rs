@@ -3,14 +3,27 @@
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
-use typenum::{Add1, Sub1, Bit, UInt, Unsigned, B1, U0, U1};
+use typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
+
+pub mod counted;
 
 mod private {
+    use super::*;
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
+    pub trait Increment: Count {
+        type Inc: Count;
+        fn inc(self) -> Self::Inc;
+    }
+    pub trait Decrement: Count {
+        type Dec: Count;
+        fn dec(self) -> Self::Dec;
+    }
 }
 
+pub(crate) use private::Decrement as PrivateDecrement;
+pub(crate) use private::Increment as PrivateIncrement;
 pub(crate) use private::Sealed;
 
 /// Type-level version of the [`None`] variant
@@ -106,12 +119,9 @@ impl<N: Unsigned> Count for Natural<N> {}
 //==============================================================================
 
 /// TODO
-pub trait Increment: Count {
-    type Inc: Count;
-    fn inc(self) -> Self::Inc;
-}
+pub trait Increment: PrivateIncrement {}
 
-impl<N> Increment for Natural<N>
+impl<N> PrivateIncrement for Natural<N>
 where
     N: Unsigned + Add<B1>,
     Add1<N>: Unsigned,
@@ -122,17 +132,21 @@ where
     }
 }
 
+impl<N> Increment for Natural<N>
+where
+    N: Unsigned + Add<B1>,
+    Add1<N>: Unsigned,
+{
+}
+
 //==============================================================================
 // Decrement
 //==============================================================================
 
 /// TODO
-pub trait Decrement: Count {
-    type Dec: Count;
-    fn dec(self) -> Self::Dec;
-}
+pub trait Decrement: PrivateDecrement {}
 
-impl<N> Decrement for Natural<N>
+impl<N> PrivateDecrement for Natural<N>
 where
     N: NonZero + Sub<B1>,
     Sub1<N>: Unsigned,
@@ -141,6 +155,13 @@ where
     fn dec(self) -> Self::Dec {
         Natural::new()
     }
+}
+
+impl<N> Decrement for Natural<N>
+where
+    N: NonZero + Sub<B1>,
+    Sub1<N>: Unsigned,
+{
 }
 
 //==============================================================================
@@ -152,21 +173,3 @@ pub trait GreaterThanOne {}
 impl<U: Unsigned, X: Bit, Y: Bit> GreaterThanOne for UInt<UInt<U, X>, Y> {}
 
 impl<N: Unsigned + GreaterThanOne> GreaterThanOne for Natural<N> {}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-pub trait Lockable {
-    type Locked;
-    fn lock(self) -> Self::Locked;
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-pub trait Unlockable {
-    type Unlocked;
-    fn unlock(self) -> Self::Unlocked;
-}

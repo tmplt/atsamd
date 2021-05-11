@@ -7,11 +7,12 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
-use crate::time::{Hertz};
-use crate::typelevel::{Sealed, Count, Zero, Increment, Decrement, Lockable, Unlockable};
+use crate::time::Hertz;
+use crate::typelevel::counted::Counted;
+use crate::typelevel::{Count, Decrement, Increment, Sealed, Zero};
 
-use super::super::gclk::{GenNum, GclkSourceEnum, GclkSource, GclkSourceType};
-use super::super::pclk::{Pclk, PclkType, PclkSourceType};
+use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
+use super::super::pclk::{Pclk, PclkSourceType, PclkType};
 
 //==============================================================================
 // DpllNum
@@ -164,7 +165,6 @@ impl<D: DpllNum> Registers<D> {
         while self.syncbusy().enable().bit_is_set() {}
     }
 
-
     // TODO
     #[inline]
     fn enable(&mut self) {
@@ -245,9 +245,9 @@ where
 {
     /// TODO
     #[inline]
-    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (DpllConfig<D, T>, S::Locked)
+    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (DpllConfig<D, T>, S::Inc)
     where
-        S: DpllSource<Type = T> + Lockable,
+        S: DpllSource<Type = T> + Increment,
     {
         let freq = source.freq();
         let (mult, frac, div) = (1, 0, 1);
@@ -265,7 +265,7 @@ where
             div,
         };
         // TODO
-        (dpll, source.lock())
+        (dpll, source.inc())
     }
 }
 
@@ -276,11 +276,11 @@ where
 {
     /// TODO
     #[inline]
-    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Unlocked)
+    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
     where
-        S: DpllSource<Type = T> + Unlockable,
+        S: DpllSource<Type = T> + Decrement,
     {
-        (self.token, source.unlock())
+        (self.token, source.dec())
     }
 }
 
@@ -328,11 +328,11 @@ where
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> Dpll<D, T> {
+    pub fn enable(mut self) -> Counted<Dpll<D, T>, Zero> {
         assert!(self.freq().0 >= 96_000_000);
         assert!(self.freq().0 <= 200_000_000);
         self.token.enable();
-        Dpll::new(self)
+        Counted::new(Dpll::new(self))
     }
 }
 
@@ -341,27 +341,24 @@ where
 //==============================================================================
 
 /// TODO
-pub struct Dpll<D, T, N = Zero>
+pub struct Dpll<D, T>
 where
     D: DpllNum,
     T: DpllSourceType,
-    N: Count,
 {
     config: DpllConfig<D, T>,
-    count: N,
 }
 
 /// TODO
-pub type Dpll0<T, N> = Dpll<Pll0, T, N>;
+pub type Dpll0<T> = Dpll<Pll0, T>;
 
 /// TODO
-pub type Dpll1<T, N> = Dpll<Pll1, T, N>;
+pub type Dpll1<T> = Dpll<Pll1, T>;
 
-impl<D, T, N> Sealed for Dpll<D, T, N>
+impl<D, T> Sealed for Dpll<D, T>
 where
     D: DpllNum,
     T: DpllSourceType,
-    N: Count,
 {
 }
 
@@ -373,8 +370,7 @@ where
     /// TODO
     #[inline]
     fn new(config: DpllConfig<D, T>) -> Self {
-        let count = Zero::new();
-        Dpll { config, count }
+        Dpll { config }
     }
 
     /// TODO
@@ -382,18 +378,6 @@ where
     pub fn disable(mut self) -> DpllConfig<D, T> {
         self.config.token.disable();
         self.config
-    }
-}
-
-impl<D, T, N> Dpll<D, T, N>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-    N: Count,
-{
-    #[inline]
-    fn create(config: DpllConfig<D, T>, count: N) -> Self {
-        Dpll { config, count }
     }
 
     /// TODO
@@ -415,35 +399,14 @@ where
     }
 }
 
-//==============================================================================
-// Lockable
-//==============================================================================
-
-impl<D, T, N> Lockable for Dpll<D, T, N>
+impl<D, T> Counted<Dpll<D, T>, Zero>
 where
     D: DpllNum,
     T: DpllSourceType,
-    N: Increment,
 {
-    type Locked = Dpll<D, T, N::Inc>;
-    fn lock(self) -> Self::Locked {
-        Dpll::create(self.config, self.count.inc())
-    }
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-impl<D, T, N> Unlockable for Dpll<D, T, N>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-    N: Decrement,
-{
-    type Unlocked = Dpll<D, T, N::Dec>;
-    fn unlock(self) -> Self::Unlocked {
-        Dpll::create(self.config, self.count.dec())
+    #[inline]
+    pub fn disable(self) -> DpllConfig<D, T> {
+        self.0.disable()
     }
 }
 
@@ -459,7 +422,7 @@ impl GclkSourceType for Pll1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL1;
 }
 
-impl<G, D, T, N> GclkSource<G> for Dpll<D, T, N>
+impl<G, D, T, N> GclkSource<G> for Counted<Dpll<D, T>, N>
 where
     G: GenNum,
     D: DpllNum + GclkSourceType,
