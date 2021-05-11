@@ -3,15 +3,26 @@
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
-use typenum::{Add1, Sub1, Bit, UInt, Unsigned, B1, U0, U1};
+use typenum::{Add1, Bit, Sub1, UInt, Unsigned, B1, U0, U1};
+
+pub mod counted;
 
 mod private {
+    use super::*;
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
+    pub trait SealedIncrement: Count {
+        type Inc: Count;
+        fn inc(self) -> Self::Inc;
+    }
+    pub trait SealedDecrement: Count {
+        type Dec: Count;
+        fn dec(self) -> Self::Dec;
+    }
 }
 
-pub(crate) use private::Sealed;
+pub(crate) use private::*;
 
 /// Type-level version of the [`None`] variant
 pub struct NoneT;
@@ -106,12 +117,9 @@ impl<N: Unsigned> Count for Natural<N> {}
 //==============================================================================
 
 /// TODO
-pub trait Increment: Count {
-    type Inc: Count;
-    fn inc(self) -> Self::Inc;
-}
+pub trait Increment: SealedIncrement {}
 
-impl<N> Increment for Natural<N>
+impl<N> SealedIncrement for Natural<N>
 where
     N: Unsigned + Add<B1>,
     Add1<N>: Unsigned,
@@ -122,17 +130,21 @@ where
     }
 }
 
+impl<N> Increment for Natural<N>
+where
+    N: Unsigned + Add<B1>,
+    Add1<N>: Unsigned,
+{
+}
+
 //==============================================================================
 // Decrement
 //==============================================================================
 
 /// TODO
-pub trait Decrement: Count {
-    type Dec: Count;
-    fn dec(self) -> Self::Dec;
-}
+pub trait Decrement: SealedDecrement {}
 
-impl<N> Decrement for Natural<N>
+impl<N> SealedDecrement for Natural<N>
 where
     N: NonZero + Sub<B1>,
     Sub1<N>: Unsigned,
@@ -141,6 +153,13 @@ where
     fn dec(self) -> Self::Dec {
         Natural::new()
     }
+}
+
+impl<N> Decrement for Natural<N>
+where
+    N: NonZero + Sub<B1>,
+    Sub1<N>: Unsigned,
+{
 }
 
 //==============================================================================
