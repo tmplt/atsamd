@@ -796,7 +796,6 @@ pub type Word<L> = <L as Length>::Word;
 /// Marker type for a run-time dynamic [`Length`]
 pub type DynLength = U0;
 
-impl Sealed for DynLength {}
 impl Length for DynLength {
     type Word = ();
 }
@@ -807,28 +806,24 @@ pub trait StaticLength: Length {}
 /// Marker trait for transactions that are performed atomically
 pub trait AtomicLength: Length {}
 
-impl Sealed for U1 {}
 impl StaticLength for U1 {}
 impl AtomicLength for U1 {}
 impl Length for U1 {
     type Word = u8;
 }
 
-impl Sealed for U2 {}
 impl StaticLength for U2 {}
 impl AtomicLength for U2 {}
 impl Length for U2 {
     type Word = u16;
 }
 
-impl Sealed for U3 {}
 impl StaticLength for U3 {}
 impl AtomicLength for U3 {}
 impl Length for U3 {
     type Word = u32;
 }
 
-impl Sealed for U4 {}
 impl StaticLength for U4 {}
 impl AtomicLength for U4 {}
 impl Length for U4 {
@@ -839,7 +834,6 @@ impl Length for U4 {
 pub trait GreaterThan4: Length {}
 
 seq!(N in 5..=255 {
-    impl Sealed for typenum::U#N {}
     impl StaticLength for typenum::U#N {}
     impl GreaterThan4 for typenum::U#N {}
     impl Length for typenum::U#N {
