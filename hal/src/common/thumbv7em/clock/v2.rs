@@ -3,6 +3,7 @@
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 
+use crate::typelevel::counted::Counted;
 use crate::typelevel::One;
 
 pub mod sources;
@@ -53,8 +54,8 @@ impl Tokens {
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
     ) -> (
-        Gclk0<marker::Dfll<OpenLoop>, One>,
-        Dfll<OpenLoop, One>,
+        Counted<Gclk0<marker::Dfll<OpenLoop>>, One>,
+        Counted<Dfll<OpenLoop>, One>,
         Tokens,
     ) {
         // TODO
@@ -72,9 +73,9 @@ impl Tokens {
                 ahbs: ahb::AhbClks::new(),
                 apbs: apb::ApbClks::new(),
             };
-            let dfll = Dfll::init();
+            let dfll = Counted::new_unsafe(Dfll::init());
             let freq = dfll.freq();
-            let gclk0 = Gclk0::init(freq);
+            let gclk0 = Counted::new_unsafe(Gclk0::init(freq));
             (gclk0, dfll, tokens)
         }
     }

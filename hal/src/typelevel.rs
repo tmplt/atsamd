@@ -12,17 +12,19 @@ mod private {
     /// Super trait used to mark traits with an exhaustive set of
     /// implementations
     pub trait Sealed {}
-    pub trait SealedIncrement: Count {
+    pub trait Increment: Count {
         type Inc: Count;
         fn inc(self) -> Self::Inc;
     }
-    pub trait SealedDecrement: Count {
+    pub trait Decrement: Count {
         type Dec: Count;
         fn dec(self) -> Self::Dec;
     }
 }
 
-pub(crate) use private::*;
+pub(crate) use private::Decrement as PrivateDecrement;
+pub(crate) use private::Increment as PrivateIncrement;
+pub(crate) use private::Sealed;
 
 /// Type-level version of the [`None`] variant
 pub struct NoneT;
@@ -117,9 +119,9 @@ impl<N: Unsigned> Count for Natural<N> {}
 //==============================================================================
 
 /// TODO
-pub trait Increment: SealedIncrement {}
+pub trait Increment: PrivateIncrement {}
 
-impl<N> SealedIncrement for Natural<N>
+impl<N> PrivateIncrement for Natural<N>
 where
     N: Unsigned + Add<B1>,
     Add1<N>: Unsigned,
@@ -142,9 +144,9 @@ where
 //==============================================================================
 
 /// TODO
-pub trait Decrement: SealedDecrement {}
+pub trait Decrement: PrivateDecrement {}
 
-impl<N> SealedDecrement for Natural<N>
+impl<N> PrivateDecrement for Natural<N>
 where
     N: NonZero + Sub<B1>,
     Sub1<N>: Unsigned,
@@ -171,21 +173,3 @@ pub trait GreaterThanOne {}
 impl<U: Unsigned, X: Bit, Y: Bit> GreaterThanOne for UInt<UInt<U, X>, Y> {}
 
 impl<N: Unsigned + GreaterThanOne> GreaterThanOne for Natural<N> {}
-
-//==============================================================================
-// Lockable
-//==============================================================================
-
-pub trait Lockable {
-    type Locked;
-    fn lock(self) -> Self::Locked;
-}
-
-//==============================================================================
-// Unlockable
-//==============================================================================
-
-pub trait Unlockable {
-    type Unlocked;
-    fn unlock(self) -> Self::Unlocked;
-}
