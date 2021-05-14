@@ -9,9 +9,7 @@ pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{
-    Count, Decrement, Increment, PrivateDecrement, PrivateIncrement, Sealed, Zero,
-};
+use crate::typelevel::{Count, Decrement, Increment, Sealed, Zero};
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
 use super::super::pclk::{Pclk, PclkSourceType, PclkType};
@@ -247,13 +245,9 @@ where
 {
     /// TODO
     #[inline]
-    pub fn from_xosc<S, N>(
-        mut token: DpllToken<D>,
-        source: Counted<S, N>,
-    ) -> (DpllConfig<D, T>, Counted<S, N::Inc>)
+    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (DpllConfig<D, T>, S::Inc)
     where
-        S: DpllSource<Type = T>,
-        N: Increment,
+        S: DpllSource<Type = T> + Increment,
     {
         let freq = source.freq();
         assert!(freq.0 >= 32_000);
@@ -280,10 +274,9 @@ where
 {
     /// TODO
     #[inline]
-    pub fn free_xosc<S, N>(self, source: Counted<S, N>) -> (DpllToken<D>, Counted<S, N::Dec>)
+    pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
     where
-        S: DpllSource<Type = T>,
-        N: Decrement,
+        S: DpllSource<Type = T> + Decrement,
     {
         (self.token, source.dec())
     }
