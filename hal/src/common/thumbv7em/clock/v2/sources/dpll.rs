@@ -9,7 +9,9 @@ pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Decrement, Increment, PrivateDecrement, PrivateIncrement, Sealed, Zero};
+use crate::typelevel::{
+    Count, Decrement, Increment, PrivateDecrement, PrivateIncrement, Sealed, Zero,
+};
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
 use super::super::pclk::{Pclk, PclkSourceType, PclkType};
@@ -425,11 +427,12 @@ impl GclkSourceType for Pll1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL1;
 }
 
-impl<G, D, T> GclkSource<G> for Dpll<D, T>
+impl<G, D, T, N> GclkSource<G> for Counted<Dpll<D, T>, N>
 where
     G: GenNum,
     D: DpllNum + GclkSourceType,
     T: DpllSourceType,
+    N: Count,
 {
     type Type = D;
 

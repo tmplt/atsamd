@@ -13,9 +13,7 @@ pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{
-    Decrement, Increment, Is, One, PrivateDecrement, PrivateIncrement, Sealed, Zero,
-};
+use crate::typelevel::{Count, Decrement, Increment, Is, One, Sealed, Zero};
 
 use crate::clock::v2::pclk::{Dfll48, Pclk, PclkSourceType};
 use crate::clock::v2::sources::dfll::{marker, ClosedLoop, Dfll, OpenLoop};
@@ -254,13 +252,9 @@ where
 {
     /// TODO
     #[inline]
-    pub fn new<S, N>(
-        mut token: GclkToken<G>,
-        source: Counted<S, N>,
-    ) -> (GclkConfig<G, T>, Counted<S, N::Inc>)
+    pub fn new<S>(mut token: GclkToken<G>, source: S) -> (GclkConfig<G, T>, S::Inc)
     where
-        S: GclkSource<G, Type = T>,
-        N: Increment,
+        S: GclkSource<G, Type = T> + Increment,
     {
         let freq = source.freq();
         let div = 1;
@@ -282,10 +276,9 @@ where
 {
     /// TODO
     #[inline]
-    pub fn free<S, N>(self, source: Counted<S, N>) -> (GclkToken<G>, Counted<S, N::Dec>)
+    pub fn free<S>(self, source: S) -> (GclkToken<G>, S::Dec)
     where
-        S: GclkSource<G, Type = T>,
-        N: Decrement,
+        S: GclkSource<G, Type = T> + Decrement,
     {
         (self.token, source.dec())
     }
@@ -298,20 +291,14 @@ where
 {
     /// TODO
     #[inline]
-    pub fn swap<Old, New, OldN, NewN>(
+    pub fn swap<Old, New>(
         self,
-        old: Counted<Old, OldN>,
-        new: Counted<New, NewN>,
-    ) -> (
-        GclkConfig<G, New::Type>,
-        Counted<Old, OldN::Dec>,
-        Counted<New, NewN::Inc>,
-    )
+        old: Old,
+        new: New,
+    ) -> (GclkConfig<G, New::Type>, Old::Dec, New::Inc)
     where
-        Old: GclkSource<G, Type = T>,
-        New: GclkSource<G>,
-        OldN: Decrement,
-        NewN: Increment,
+        Old: GclkSource<G, Type = T> + Decrement,
+        New: GclkSource<G> + Increment,
     {
         let (token, old) = self.free(old);
         let (config, new) = GclkConfig::new(token, new);
@@ -394,20 +381,14 @@ where
 impl<T: GclkSourceType> Counted<Gclk<Gen0, T>, One> {
     /// TODO
     #[inline]
-    pub unsafe fn swap<Old, New, OldN, NewN>(
+    pub unsafe fn swap<Old, New>(
         self,
-        old: Counted<Old, OldN>,
-        new: Counted<New, NewN>,
-    ) -> (
-        Counted<Gclk<Gen0, New::Type>, One>,
-        Counted<Old, OldN::Dec>,
-        Counted<New, NewN::Inc>,
-    )
+        old: Old,
+        new: New,
+    ) -> (Counted<Gclk<Gen0, New::Type>, One>, Old::Dec, New::Inc)
     where
-        Old: GclkSource<Gen0, Type = T>,
-        New: GclkSource<Gen0>,
-        OldN: Decrement,
-        NewN: Increment,
+        Old: GclkSource<Gen0, Type = T> + Decrement,
+        New: GclkSource<Gen0> + Increment,
     {
         let (config, old, new) = self.0.config.swap(old, new);
         (Counted::new_unsafe(Gclk::create(config)), old, new)
@@ -517,15 +498,16 @@ impl GclkSourceType for Gen1 {
 
 macro_rules! impl_gclk1_source {
     ($GenNum:ident) => {
-        impl<T> GclkSource<$GenNum> for Gclk1<T>
+        impl<T, N> GclkSource<$GenNum> for Counted<Gclk1<T>, N>
         where
             T: GclkSourceType,
+            N: Count,
         {
             type Type = Gen1;
 
             #[inline]
             fn freq(&self) -> Hertz {
-                self.freq()
+                self.0.freq()
             }
         }
     };

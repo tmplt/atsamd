@@ -74,7 +74,7 @@ impl Tokens {
                 apbs: apb::ApbClks::new(),
             };
             let dfll = Counted::new_unsafe(Dfll::init());
-            let freq = dfll.freq();
+            let freq = dfll.0.freq();
             let gclk0 = Counted::new_unsafe(Gclk0::init(freq));
             (gclk0, dfll, tokens)
         }

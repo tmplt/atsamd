@@ -1,6 +1,6 @@
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Sealed, Zero};
+use crate::typelevel::{Count, Sealed, Zero};
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
 use super::super::pclk::{Dfll48, Pclk, PclkSourceType};
@@ -271,19 +271,19 @@ impl<TMode: LoopMode> Counted<Dfll<TMode>, Zero> {
 // GclkSource
 //==============================================================================
 
-impl<G: GenNum> GclkSource<G> for Dfll<OpenLoop> {
+impl<G: GenNum, N: Count> GclkSource<G> for Counted<Dfll<OpenLoop>, N> {
     type Type = marker::Dfll<OpenLoop>;
     #[inline]
     fn freq(&self) -> Hertz {
-        self.freq()
+        self.0.freq()
     }
 }
 
-impl<G: GenNum, T: PclkSourceType> GclkSource<G> for Dfll<ClosedLoop<T>> {
+impl<G: GenNum, T: PclkSourceType, N: Count> GclkSource<G> for Counted<Dfll<ClosedLoop<T>>, N> {
     type Type = marker::Dfll<marker::ClosedLoop>;
     #[inline]
     fn freq(&self) -> Hertz {
-        self.freq()
+        self.0.freq()
     }
 }
 

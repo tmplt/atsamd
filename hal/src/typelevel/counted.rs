@@ -28,6 +28,8 @@ impl<T, N: Increment> PrivateIncrement for Counted<T, N> {
     }
 }
 
+impl<T, N: Increment> Increment for Counted<T, N> {}
+
 impl<T, N: Decrement> PrivateDecrement for Counted<T, N> {
     type Dec = Counted<T, N::Dec>;
 
@@ -35,6 +37,8 @@ impl<T, N: Decrement> PrivateDecrement for Counted<T, N> {
         Counted(self.0, PhantomData)
     }
 }
+
+impl<T, N: Decrement> Decrement for Counted<T, N> {}
 
 impl<T, N: Count> Deref for Counted<T, N> {
     type Target = T;

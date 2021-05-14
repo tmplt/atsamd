@@ -144,16 +144,17 @@ impl GclkSourceType for GclkInput {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKIN;
 }
 
-impl<G, I> GclkSource<G> for GclkIn<G, I>
+impl<G, I, N> GclkSource<G> for Counted<GclkIn<G, I>, N>
 where
     G: GenNum,
     I: GclkIo<G>,
+    N: Count,
 {
     type Type = GclkInput;
 
     #[inline]
     fn freq(&self) -> Hertz {
-        self.freq
+        self.0.freq
     }
 }
 
