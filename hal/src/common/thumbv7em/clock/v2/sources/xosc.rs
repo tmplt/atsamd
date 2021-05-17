@@ -150,6 +150,7 @@ impl<X: XOscNum> Registers<X> {
     }
 
     #[inline]
+    #[allow(dead_code)]
     fn set_clock_failure_detection(&mut self, cfden: bool) {
         self.xoscctrl().modify(|_, w| w.cfden().bit(cfden));
     }
