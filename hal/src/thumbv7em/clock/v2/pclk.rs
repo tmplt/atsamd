@@ -12,7 +12,7 @@ pub use crate::pac::gclk::pchctrl::GEN_A as PclkSourceEnum;
 use crate::sercom::*;
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Count, Decrement, Increment, Sealed};
+use crate::typelevel::{Counter, Decrement, Increment, Sealed};
 
 use super::gclk::*;
 use super::sources::dpll::{Pll0, Pll1};
@@ -119,7 +119,7 @@ impl<G, N> PclkSource for Counted<G, N>
 where
     G: AnyGclk,
     G::GenNum: PclkSourceType,
-    N: Count,
+    N: Counter,
 {
     type Type = G::GenNum;
     fn freq(&self) -> Hertz {

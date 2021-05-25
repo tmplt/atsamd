@@ -1,8 +1,10 @@
+use typenum::{U0, U1};
+
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Count, Sealed, Zero};
+use crate::typelevel::{Counter, PrivateIncrement, Sealed};
 
-use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
+use super::super::gclk::{Gclk0, GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
 use super::super::pclk::{Dfll48, Pclk, PclkSourceType};
 
 /// TODO
@@ -16,7 +18,7 @@ pub struct Registers {
 impl Registers {
     /// TODO
     #[inline]
-    unsafe fn new() -> Self {
+    pub(crate) unsafe fn new() -> Self {
         Self { __: () }
     }
 
@@ -78,6 +80,12 @@ impl Registers {
     }
     #[allow(dead_code)]
     #[inline]
+    fn disable(&mut self) {
+        self.dfllctrla().modify(|_, w| w.enable().clear_bit());
+        self.wait_sync_enable();
+    }
+    #[allow(dead_code)]
+    #[inline]
     fn set_open_mode(&mut self) {
         self.dfllctrlb().modify(|_, w| w.mode().clear_bit());
         self.wait_sync_enable();
@@ -135,7 +143,7 @@ pub struct ClosedLoop<T: PclkSourceType> {
 impl<T: PclkSourceType> Sealed for ClosedLoop<T> {}
 impl<T: PclkSourceType> LoopMode for ClosedLoop<T> {}
 
-pub struct DfllConfig<TMode: LoopMode> {
+pub struct Dfll<TMode: LoopMode> {
     token: DfllToken,
     freq: Hertz,
     mode: TMode,
@@ -147,7 +155,7 @@ pub struct DfllConfig<TMode: LoopMode> {
     on_demand_mode: bool,
 }
 
-impl<TMode: LoopMode> DfllConfig<TMode> {
+impl<TMode: LoopMode> Dfll<TMode> {
     pub fn freq(&self) -> Hertz {
         Hertz(self.freq.0 * self.multiplication_factor as u32)
     }
@@ -159,8 +167,8 @@ impl<TMode: LoopMode> DfllConfig<TMode> {
     }
 }
 
-impl DfllConfig<OpenLoop> {
-    pub fn in_open_mode(token: DfllToken) -> DfllConfig<OpenLoop> {
+impl Dfll<OpenLoop> {
+    pub fn in_open_mode(token: DfllToken) -> Dfll<OpenLoop> {
         Self {
             token,
             freq: 48.mhz().into(),
@@ -173,24 +181,24 @@ impl DfllConfig<OpenLoop> {
             on_demand_mode: false,
         }
     }
-    pub fn enable(mut self) -> Counted<Dfll<OpenLoop>, Zero> {
+    pub fn enable(mut self) -> Counted<Self, U0> {
         self.token.set_open_mode();
         self.token.enable();
-        Counted::new(Dfll::new(self))
+        Counted::new(self)
     }
     pub fn free(self) -> DfllToken {
         self.token
     }
 }
 
-impl<T: PclkSourceType> DfllConfig<ClosedLoop<T>> {
+impl<T: PclkSourceType> Dfll<ClosedLoop<T>> {
     pub fn in_closed_mode(
         token: DfllToken,
         reference_clk: Pclk<Dfll48, T>,
         multiplication_factor: MultiplicationFactor,
         coarse_maximum_step: CoarseMaximumStep,
         fine_maximum_step: FineMaximumStep,
-    ) -> DfllConfig<ClosedLoop<T>> {
+    ) -> Dfll<ClosedLoop<T>> {
         Self {
             token,
             freq: reference_clk.freq(),
@@ -213,7 +221,7 @@ impl<T: PclkSourceType> DfllConfig<ClosedLoop<T>> {
     pub fn set_fine_maximum_step(&mut self, fine_maximum_step: FineMaximumStep) {
         self.mode.fine_maximum_step = fine_maximum_step;
     }
-    pub fn enable(mut self) -> Counted<Dfll<ClosedLoop<T>>, Zero> {
+    pub fn enable(mut self) -> Counted<Self, U0> {
         self.token
             .set_fine_maximum_step(self.mode.fine_maximum_step);
         self.token
@@ -221,49 +229,58 @@ impl<T: PclkSourceType> DfllConfig<ClosedLoop<T>> {
         self.token
             .set_multiplication_factor(self.multiplication_factor);
         self.token.set_closed_mode();
-        Counted::new(Dfll::new(self))
+        Counted::new(self)
     }
     pub fn free(self) -> (DfllToken, Pclk<Dfll48, T>) {
         (self.token, self.mode.reference_clk)
     }
 }
 
-/// TODO
-pub struct Dfll<TMode: LoopMode> {
-    #[allow(dead_code)]
-    config: DfllConfig<TMode>,
-}
-
-impl<TMode: LoopMode> Dfll<TMode> {
-    fn new(config: DfllConfig<TMode>) -> Self {
-        Dfll { config }
-    }
-
-    fn disable(self) -> DfllConfig<TMode> {
-        // TODO: Disable Dfll
-        self.config
-    }
-
-    pub fn freq(&self) -> Hertz {
-        self.config.freq()
-    }
-}
-
-impl Dfll<OpenLoop> {
+impl<TMode: LoopMode> Counted<Dfll<TMode>, U0> {
     /// TODO
     #[inline]
-    pub(crate) unsafe fn init() -> Self {
-        Dfll::new(DfllConfig::in_open_mode(DfllToken::new()))
+    pub fn disable(mut self) -> Dfll<TMode> {
+        // TODO: Make sure Dfll is disabled correctly
+        self.0.token.disable();
+        self.0
     }
 }
 
-impl<TMode: LoopMode> Sealed for Dfll<TMode> {}
-
-impl<TMode: LoopMode> Counted<Dfll<TMode>, Zero> {
+impl Counted<Dfll<OpenLoop>, U1> {
     /// TODO
-    #[inline]
-    pub fn disable(self) -> DfllConfig<TMode> {
-        self.0.disable()
+    pub fn to_closed_mode<T: PclkSourceType>(
+        self,
+        gclk0: Gclk0<marker::Dfll>,
+        reference_clk: Pclk<Dfll48, T>,
+        multiplication_factor: MultiplicationFactor,
+        coarse_maximum_step: CoarseMaximumStep,
+        fine_maximum_step: FineMaximumStep,
+    ) -> (Counted<Dfll<ClosedLoop<T>>, U1>, Gclk0<marker::Dfll>) {
+        let token = self.0.free();
+        let dfll = Dfll::in_closed_mode(
+            token,
+            reference_clk,
+            multiplication_factor,
+            coarse_maximum_step,
+            fine_maximum_step,
+        );
+        (dfll.enable().inc(), gclk0)
+    }
+}
+
+impl<T: PclkSourceType> Counted<Dfll<ClosedLoop<T>>, U1> {
+    /// TODO
+    pub fn to_open_mode(
+        self,
+        gclk0: Gclk0<marker::Dfll>,
+    ) -> (
+        Counted<Dfll<OpenLoop>, U1>,
+        Gclk0<marker::Dfll>,
+        Pclk<Dfll48, T>,
+    ) {
+        let (token, pclk) = self.0.free();
+        let dfll = Dfll::in_open_mode(token);
+        (dfll.enable().inc(), gclk0, pclk)
     }
 }
 
@@ -271,16 +288,16 @@ impl<TMode: LoopMode> Counted<Dfll<TMode>, Zero> {
 // GclkSource
 //==============================================================================
 
-impl<G: GenNum, N: Count> GclkSource<G> for Counted<Dfll<OpenLoop>, N> {
-    type Type = marker::Dfll<OpenLoop>;
+impl<G: GenNum, N: Counter> GclkSource<G> for Counted<Dfll<OpenLoop>, N> {
+    type Type = marker::Dfll;
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq()
     }
 }
 
-impl<G: GenNum, T: PclkSourceType, N: Count> GclkSource<G> for Counted<Dfll<ClosedLoop<T>>, N> {
-    type Type = marker::Dfll<marker::ClosedLoop>;
+impl<G: GenNum, T: PclkSourceType, N: Counter> GclkSource<G> for Counted<Dfll<ClosedLoop<T>>, N> {
+    type Type = marker::Dfll;
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq()
@@ -289,30 +306,12 @@ impl<G: GenNum, T: PclkSourceType, N: Count> GclkSource<G> for Counted<Dfll<Clos
 
 pub mod marker {
     use super::{GclkSourceEnum, GclkSourceType, Sealed};
-    use core::marker::PhantomData;
 
-    pub trait ModeMarker: Sealed {}
-    /// TODO
-    /// super::ClosedLoop type is polluted with a generic parameter describing
-    /// reference clock. It is undesirable to have a marker type owned by a
-    /// Gclk that knows about source of its source.
-    /// This is a reason for existence of this type.
-    pub struct ClosedLoop {
-        __: (),
-    }
+    pub enum Dfll {}
 
-    impl Sealed for ClosedLoop {}
-    impl ModeMarker for ClosedLoop {}
+    impl Sealed for Dfll {}
 
-    impl ModeMarker for super::OpenLoop {}
-
-    pub struct Dfll<T: ModeMarker> {
-        __: PhantomData<T>,
-    }
-
-    impl<T: ModeMarker> Sealed for Dfll<T> {}
-
-    impl<T: ModeMarker> GclkSourceType for Dfll<T> {
+    impl GclkSourceType for Dfll {
         const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
     }
 }

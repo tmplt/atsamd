@@ -12,6 +12,7 @@ use core::marker::PhantomData;
 
 use num_traits::AsPrimitive;
 use seq_macro::seq;
+use typenum::{U0, U1};
 
 use crate::pac;
 use crate::pac::NVMCTRL;
@@ -21,10 +22,9 @@ pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Count, Decrement, Increment, Is, One, Sealed, Zero};
+use crate::typelevel::{Counter, Decrement, Increment, Is, Sealed};
 
-use crate::clock::v2::pclk::{Dfll48, Pclk, PclkSourceType};
-use crate::clock::v2::sources::dfll::{marker, ClosedLoop, Dfll, OpenLoop};
+use crate::clock::v2::sources::dfll::marker;
 
 //==============================================================================
 // Registers
@@ -388,11 +388,12 @@ pub trait GclkSource<G: GenNum>: Sealed {
 }
 
 //==============================================================================
-// GclkConfig
+// Gclk
 //==============================================================================
 
 /// [`GclkConfig`] is a not yet enabled [`Gclk`] generic clock generator
-pub struct GclkConfig<G, T>
+/// TODO
+pub struct Gclk<G, T>
 where
     G: GenNum,
     T: GclkSourceType,
@@ -407,10 +408,10 @@ where
     div: u32,
 }
 
-impl GclkConfig<Gen0, marker::Dfll<OpenLoop>> {
-    unsafe fn init(freq: impl Into<Hertz>) -> Self {
+impl Gclk0<marker::Dfll> {
+    pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
         let token = GclkToken::new();
-        GclkConfig {
+        Gclk {
             token,
             src: PhantomData,
             freq: freq.into(),
@@ -419,21 +420,23 @@ impl GclkConfig<Gen0, marker::Dfll<OpenLoop>> {
     }
 }
 
-impl<G, T> GclkConfig<G, T>
+impl<G, T> Gclk<G, T>
 where
     G: GenNum,
     T: GclkSourceType,
 {
     /// Taking a [`GclkToken`] and returning a [`GclkConfig`] which when enabled becomes a [`Gclk`]
     #[inline]
-    pub fn new<S>(mut token: GclkToken<G>, source: S) -> (GclkConfig<G, T>, S::Inc)
+    pub fn new<S>(mut token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
     where
         S: GclkSource<G, Type = T> + Increment,
     {
         let freq = source.freq();
         let div = 1;
+        // TODO: Consider moving all HW calls outside of ::new and ::free
+        // Also setters.
         token.set_source(T::GCLK_SRC);
-        let config = GclkConfig {
+        let config = Gclk {
             token,
             src: PhantomData,
             freq,
@@ -443,7 +446,7 @@ where
     }
 }
 
-impl<G, T> GclkConfig<G, T>
+impl<G, T> Gclk<G, T>
 where
     G: GenNum,
     T: GclkSourceType,
@@ -458,7 +461,7 @@ where
     }
 }
 
-impl<T> GclkConfig<Gen1, T>
+impl<T> Gclk1<T>
 where
     T: GclkSourceType,
 {
@@ -473,7 +476,7 @@ where
     }
 }
 
-impl<G, T> GclkConfig<G, T>
+impl<G, T> Gclk<G, T>
 where
     G: NotGen1,
     T: GclkSourceType,
@@ -489,7 +492,7 @@ where
     }
 }
 
-impl<G, T> GclkConfig<G, T>
+impl<G, T> Gclk<G, T>
 where
     G: GenNum,
     T: GclkSourceType,
@@ -499,17 +502,13 @@ where
     /// Provided a [`GclkSource`] the [`GclkConfig`] is updated,
     /// the old clock source token released and returned
     #[inline]
-    pub fn swap<Old, New>(
-        self,
-        old: Old,
-        new: New,
-    ) -> (GclkConfig<G, New::Type>, Old::Dec, New::Inc)
+    pub fn swap<Old, New>(self, old: Old, new: New) -> (Gclk<G, New::Type>, Old::Dec, New::Inc)
     where
         Old: GclkSource<G, Type = T> + Decrement,
         New: GclkSource<G> + Increment,
     {
         let (token, old) = self.free(old);
-        let (config, new) = GclkConfig::new(token, new);
+        let (config, new) = Gclk::new(token, new);
         (config, old, new)
     }
 
@@ -543,176 +542,28 @@ where
 
     /// Enabling a [`GclkConfig`] results in a [`Gclk`]
     #[inline]
-    pub fn enable(mut self) -> Counted<Gclk<G, T>, Zero> {
+    pub fn enable(mut self) -> Counted<Gclk<G, T>, U0> {
         self.token.enable();
-        Counted::new(Gclk::create(self))
+        Counted::new(self)
     }
 }
-
-//==============================================================================
-// Gclk
-//==============================================================================
 
 /// The [`Gclk`] generic clock generator
 /// TODO
 ///
-pub struct Gclk<G, T>
+impl<G, T, N> Counted<Gclk<G, T>, N>
 where
     G: GenNum,
     T: GclkSourceType,
+    N: Counter,
 {
-    config: GclkConfig<G, T>,
-}
-
-impl Gclk0<marker::Dfll<OpenLoop>> {
-    pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
-        Gclk::create(GclkConfig::init(freq))
-    }
-}
-
-impl<G, T> Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceType,
-{
-    /// When [`Gclk`] is not locked it can be destroyed and the [`GclkConfig`] can be returned
-    #[inline]
-    fn disable(mut self) -> GclkConfig<G, T> {
-        self.config.token.disable();
-        self.config
-    }
-}
-impl<T, N> Gclk<Gen1, T, N>
-where
-    T: GclkSourceType,
-    N: Count,
-{
-    /// Set the divider for [`Gclk1`]
-    ///
-    /// Recommended way is to `gclk.disable()` and modify the [`GclkConfig`]
-    #[inline]
-    pub unsafe fn div(&mut self, div: Gclk1Div) {
-        self.config.token.set_div(div);
-        self.config.div = div.as_u32();
-    }
-}
-
-impl<G, T, N> Gclk<G, T, N>
-where
-    G: NotGen1,
-    T: GclkSourceType,
-    N: Count,
-{
-    /// Set the divider for [`Gclk`]
-    ///
-    /// Recommended way is to `gclk.disable()` and modify the [`GclkConfig`]
-    #[inline]
-    pub unsafe fn div(&mut self, div: GclkDiv) {
-        self.config.token.set_div(div);
-        self.config.div = div.as_u32();
-    }
-}
-
-impl<G, T> Counted<Gclk<G, T>, Zero>
-where
-    G: GenNum,
-    T: GclkSourceType,
-{
-    /// TODO
-    #[inline]
-    fn disable(self) -> GclkConfig<G, T> {
-        self.0.disable()
-    }
-}
-
-impl<T: GclkSourceType> Counted<Gclk<Gen0, T>, One> {
-    /// TODO
-    #[inline]
-    pub unsafe fn swap<Old, New>(
-        self,
-        old: Old,
-        new: New,
-    ) -> (Counted<Gclk<Gen0, New::Type>, One>, Old::Dec, New::Inc)
-    where
-        Old: GclkSource<Gen0, Type = T> + Decrement,
-        New: GclkSource<Gen0> + Increment,
-    {
-        let (config, old, new) = self.0.config.swap(old, new);
-        (Counted::new_unsafe(Gclk::create(config)), old, new)
-    }
-}
-
-impl Counted<Gclk<Gen0, marker::Dfll<OpenLoop>>, One> {
-    pub unsafe fn change_mode<T: PclkSourceType>(
-        self,
-        old: Counted<Dfll<OpenLoop>, One>,
-        exchange: impl FnOnce(Counted<Dfll<OpenLoop>, Zero>) -> Counted<Dfll<ClosedLoop<T>>, Zero>,
-    ) -> (
-        Counted<Gclk<Gen0, marker::Dfll<marker::ClosedLoop>>, One>,
-        Counted<Dfll<ClosedLoop<T>>, One>,
-    ) {
-        let (token, old) = self.0.config.free(old);
-        let new = exchange(old);
-        let (config, new) = GclkConfig::new(token, new);
-        (Counted::new_unsafe(Gclk::create(config)), new)
-    }
-}
-
-impl Counted<Gclk<Gen0, marker::Dfll<marker::ClosedLoop>>, One> {
-    pub unsafe fn change_mode<T: PclkSourceType>(
-        self,
-        old: Counted<Dfll<ClosedLoop<T>>, One>,
-        exchange: impl FnOnce(
-            Counted<Dfll<ClosedLoop<T>>, Zero>,
-        ) -> (Counted<Dfll<OpenLoop>, Zero>, Pclk<Dfll48, T>),
-    ) -> (
-        Counted<Gclk<Gen0, marker::Dfll<OpenLoop>>, One>,
-        Counted<Dfll<OpenLoop>, One>,
-        Pclk<Dfll48, T>,
-    ) {
-        let (token, old) = self.0.config.free(old);
-        let (new, pclk) = exchange(old);
-        let (config, new) = GclkConfig::new(token, new);
-        (Counted::new_unsafe(Gclk::create(config)), new, pclk)
-    }
-}
-
-impl<G, T> Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceType,
-{
-    #[inline]
-    fn create(config: GclkConfig<G, T>) -> Self {
-        Gclk { config }
-    }
-
-    /// Forceful disable
-    #[inline]
-    pub unsafe fn disable_unchecked(mut self) -> GclkConfig<G, T> {
-        self.config.token.disable();
-        self.config
-    }
-
-    /// Forceful change of duty-cycle improvement
-    #[inline]
-    pub unsafe fn improve_duty_cycle(&mut self, flag: bool) {
-        self.config.token.improve_duty_cycle(flag);
-    }
-
-    /// Return the frequency of the [`Gclk`]
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        self.config.freq()
-    }
-
     /// Enable the [`Gclk`] clock output
     ///
     /// `pol` sets the "Output Off Value" which is
     /// the pin state when disabled
     #[inline]
     pub(super) fn enable_gclk_out(&mut self, pol: bool) {
-        self.config.token.enable_gclk_out(pol);
+        self.0.token.enable_gclk_out(pol);
     }
 
     /// Disable the [`Gclk`] clock output
@@ -721,7 +572,52 @@ where
     /// `enable_gclk_out(pol)`
     #[inline]
     pub(super) fn disable_gclk_out(&mut self) {
-        self.config.token.disable_gclk_out();
+        self.0.token.disable_gclk_out();
+    }
+}
+
+impl<G, T> Counted<Gclk<G, T>, U0>
+where
+    G: GenNum,
+    T: GclkSourceType,
+{
+    /// TODO
+    #[inline]
+    fn disable(mut self) -> Gclk<G, T> {
+        self.0.token.disable();
+        self.0
+    }
+}
+
+impl<T: GclkSourceType> Counted<Gclk0<T>, U1> {
+    /// TODO
+    #[inline]
+    pub fn swap<Old, New>(
+        self,
+        old: Old,
+        new: New,
+    ) -> (Counted<Gclk0<New::Type>, U1>, Old::Dec, New::Inc)
+    where
+        Old: GclkSource<Gen0, Type = T> + Decrement,
+        New: GclkSource<Gen0> + Increment,
+    {
+        let (config, old, new) = self.0.swap(old, new);
+
+        (unsafe { Counted::new_unsafe(config) }, old, new)
+    }
+
+    /// Set the desired [`Gclk`] clock divider
+    ///
+    /// See [`GclkDiv`] for possible divider factors
+    #[inline]
+    pub fn div(mut self, div: GclkDiv) -> Self {
+        unsafe { Counted::new_unsafe(self.0.div(div)) }
+    }
+
+    /// TODO
+    #[inline]
+    pub fn improve_duty_cycle(mut self, flag: bool) -> Self {
+        unsafe { Counted::new_unsafe(self.0.improve_duty_cycle(flag)) }
     }
 }
 
@@ -747,7 +643,7 @@ macro_rules! impl_gclk1_source {
         impl<T, N> GclkSource<$GenNum> for Counted<Gclk1<T>, N>
         where
             T: GclkSourceType,
-            N: Count,
+            N: Counter,
         {
             type Type = Gen1;
 

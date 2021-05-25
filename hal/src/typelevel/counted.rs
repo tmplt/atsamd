@@ -1,26 +1,30 @@
 use core::marker::PhantomData;
-use core::ops::{Deref, DerefMut};
+use core::ops::Deref;
+use typenum::U0;
 
-use super::*;
+use crate::typelevel::{Counter, Decrement, Increment, PrivateDecrement, PrivateIncrement, Sealed};
 
-pub struct Counted<T, N: Count>(pub(crate) T, PhantomData<N>);
+pub struct Counted<T, N: Counter>(pub(crate) T, PhantomData<N>);
 
-impl<T> Counted<T, Zero> {
+impl<T> Counted<T, U0> {
     pub(crate) fn new(t: T) -> Self {
         Self(t, PhantomData)
     }
 }
 
-impl<T, N: Count> Counted<T, N> {
+impl<T, N: Counter> Counted<T, N> {
+    // TODO: Rethink if this should be really unsafe. Maybe crate-public is enough.
+    // Rename new_unsafe -> create ?
     pub(crate) unsafe fn new_unsafe(t: T) -> Self {
         Counted(t, PhantomData)
     }
 }
 
-impl<T, N: Count> Sealed for Counted<T, N> {}
-impl<T, N: Count> Count for Counted<T, N> {}
+impl<T, N: Counter> Counter for Counted<T, N> {}
 
-impl<T, N: Increment> PrivateIncrement for Counted<T, N> {
+impl<T, N: Counter> Sealed for Counted<T, N> {}
+
+impl<T, N: PrivateIncrement> PrivateIncrement for Counted<T, N> {
     type Inc = Counted<T, N::Inc>;
 
     fn inc(self) -> Self::Inc {
@@ -28,9 +32,9 @@ impl<T, N: Increment> PrivateIncrement for Counted<T, N> {
     }
 }
 
-impl<T, N: Increment> Increment for Counted<T, N> {}
+impl<T, N: PrivateIncrement> Increment for Counted<T, N> {}
 
-impl<T, N: Decrement> PrivateDecrement for Counted<T, N> {
+impl<T, N: PrivateDecrement> PrivateDecrement for Counted<T, N> {
     type Dec = Counted<T, N::Dec>;
 
     fn dec(self) -> Self::Dec {
@@ -38,16 +42,11 @@ impl<T, N: Decrement> PrivateDecrement for Counted<T, N> {
     }
 }
 
-impl<T, N: Decrement> Decrement for Counted<T, N> {}
+impl<T, N: PrivateDecrement> Decrement for Counted<T, N> {}
 
-impl<T, N: Count> Deref for Counted<T, N> {
+impl<T, N: Counter> Deref for Counted<T, N> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-impl<T, N: Count> DerefMut for Counted<T, N> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }

@@ -1,10 +1,11 @@
 //! TODO
 
+use typenum::U1;
+
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 
 use crate::typelevel::counted::Counted;
-use crate::typelevel::One;
 
 pub mod sources;
 pub use sources::*;
@@ -54,9 +55,9 @@ impl Tokens {
         mclk: MCLK,
         nvmctrl: &mut NVMCTRL,
     ) -> (
-        Counted<Gclk0<marker::Dfll<OpenLoop>>, One>,
-        Counted<Dfll<OpenLoop>, One>,
-        Counted<OscUlp32k, One>,
+        Counted<Gclk0<marker::Dfll>, U1>,
+        Counted<Dfll<OpenLoop>, U1>,
+//        Counted<OscUlp32k, U1>,
         Tokens,
     ) {
         // TODO
@@ -74,11 +75,11 @@ impl Tokens {
                 ahbs: ahb::AhbClks::new(),
                 apbs: apb::ApbClks::new(),
             };
-            let dfll = Counted::new_unsafe(Dfll::init());
+            let dfll = Counted::new_unsafe(Dfll::in_open_mode(DfllToken::new()));
             let freq = dfll.0.freq();
             let gclk0 = Counted::new_unsafe(Gclk0::init(freq));
-            let osculp32k = Counted::new_unsafe(OscUlp32k::init());
-            (gclk0, dfll, osculp32k, tokens)
+//            let osculp32k = Counted::new_unsafe(OscUlp32k::init());
+            (gclk0, dfll, /*osculp32k,*/ tokens)
         }
     }
 

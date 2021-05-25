@@ -2,6 +2,8 @@
 
 use core::marker::PhantomData;
 
+use typenum::U0;
+
 use crate::pac::oscctrl::dpll::{dpllstatus, dpllsyncbusy, DPLLCTRLA, DPLLCTRLB, DPLLRATIO};
 use crate::pac::oscctrl::DPLL;
 
@@ -9,7 +11,7 @@ pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
-use crate::typelevel::{Count, Decrement, Increment, Sealed, Zero};
+use crate::typelevel::{Counter, Decrement, Increment, Sealed};
 
 use super::super::gclk::{GclkSource, GclkSourceEnum, GclkSourceType, GenNum};
 use super::super::pclk::{Pclk, PclkSourceType, PclkType};
@@ -181,11 +183,11 @@ impl<D: DpllNum> Registers<D> {
 }
 
 //==============================================================================
-// DpllConfig
+// Dpll
 //==============================================================================
 
 /// TODO
-pub struct DpllConfig<D, T>
+pub struct Dpll<D, T>
 where
     D: DpllNum,
     T: DpllSourceType,
@@ -198,7 +200,7 @@ where
     div: u16,
 }
 
-impl<D, T> DpllConfig<D, Pclk<D, T>>
+impl<D, T> Dpll<D, Pclk<D, T>>
 where
     D: DpllNum + PclkType,
     T: PclkSourceType,
@@ -212,7 +214,7 @@ where
         assert!(freq.0 <= 3_200_000);
         let (mult, frac, div) = (1, 0, 1);
         token.set_source_clock(Pclk::<D, T>::DPLL_SRC);
-        DpllConfig {
+        Dpll {
             token,
             src: PhantomData,
             freq,
@@ -238,14 +240,14 @@ where
     }
 }
 
-impl<D, T> DpllConfig<D, T>
+impl<D, T> Dpll<D, T>
 where
     D: DpllNum,
     T: DpllSourceType,
 {
     /// TODO
     #[inline]
-    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (DpllConfig<D, T>, S::Inc)
+    pub fn from_xosc<S>(mut token: DpllToken<D>, source: S) -> (Dpll<D, T>, S::Inc)
     where
         S: DpllSource<Type = T> + Increment,
     {
@@ -256,7 +258,7 @@ where
         assert!(frequency >= 32_000);
         assert!(frequency <= 3_200_000);
         token.set_source_clock(T::DPLL_SRC);
-        let dpll = DpllConfig {
+        let dpll = Dpll {
             token,
             src: PhantomData,
             freq,
@@ -267,13 +269,7 @@ where
         // TODO
         (dpll, source.inc())
     }
-}
 
-impl<D, T> DpllConfig<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-{
     /// TODO
     #[inline]
     pub fn free_xosc<S>(self, source: S) -> (DpllToken<D>, S::Dec)
@@ -284,7 +280,7 @@ where
     }
 }
 
-impl<D, T> DpllConfig<D, T>
+impl<D, T> Dpll<D, T>
 where
     D: DpllNum,
     T: DpllSourceType,
@@ -323,30 +319,20 @@ where
     /// TODO
     #[inline]
     pub fn freq(&self) -> Hertz {
-        Hertz(self.freq.0 / ( 2 * (1 + self.div as u32)) * (self.mult as u32 + 1 + self.frac as u32 / 32))
+        Hertz(
+            self.freq.0 / (2 * (1 + self.div as u32))
+                * (self.mult as u32 + 1 + self.frac as u32 / 32),
+        )
     }
 
     /// TODO
     #[inline]
-    pub fn enable(mut self) -> Counted<Dpll<D, T>, Zero> {
+    pub fn enable(mut self) -> Counted<Dpll<D, T>, U0> {
         assert!(self.freq().0 >= 96_000_000);
         assert!(self.freq().0 <= 200_000_000);
         self.token.enable();
-        Counted::new(Dpll::new(self))
+        Counted::new(self)
     }
-}
-
-//==============================================================================
-// Dpll
-//==============================================================================
-
-/// TODO
-pub struct Dpll<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-{
-    config: DpllConfig<D, T>,
 }
 
 /// TODO
@@ -355,58 +341,15 @@ pub type Dpll0<T> = Dpll<Pll0, T>;
 /// TODO
 pub type Dpll1<T> = Dpll<Pll1, T>;
 
-impl<D, T> Sealed for Dpll<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-{
-}
-
-impl<D, T> Dpll<D, T>
-where
-    D: DpllNum,
-    T: DpllSourceType,
-{
-    /// TODO
-    #[inline]
-    fn new(config: DpllConfig<D, T>) -> Self {
-        Dpll { config }
-    }
-
-    /// TODO
-    #[inline]
-    pub fn disable(mut self) -> DpllConfig<D, T> {
-        self.config.token.disable();
-        self.config
-    }
-
-    /// TODO
-    #[inline]
-    pub fn wait_until_ready(&self) {
-        self.config.token.wait_until_ready();
-    }
-
-    /// TODO
-    #[inline]
-    pub fn wait_until_locked(&self) {
-        self.config.token.wait_until_locked();
-    }
-
-    /// TODO
-    #[inline]
-    pub fn freq(&self) -> Hertz {
-        self.config.freq()
-    }
-}
-
-impl<D, T> Counted<Dpll<D, T>, Zero>
+impl<D, T> Counted<Dpll<D, T>, U0>
 where
     D: DpllNum,
     T: DpllSourceType,
 {
     #[inline]
-    pub fn disable(self) -> DpllConfig<D, T> {
-        self.0.disable()
+    pub fn disable(mut self) -> Dpll<D, T> {
+        self.0.token.disable();
+        self.0
     }
 }
 
@@ -427,12 +370,12 @@ where
     G: GenNum,
     D: DpllNum + GclkSourceType,
     T: DpllSourceType,
-    N: Count,
+    N: Counter,
 {
     type Type = D;
 
     #[inline]
     fn freq(&self) -> Hertz {
-        self.config.freq
+        self.0.freq()
     }
 }

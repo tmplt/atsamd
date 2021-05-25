@@ -3,6 +3,7 @@
 use core::marker::PhantomData;
 
 use seq_macro::seq;
+use typenum::U0;
 
 use crate::gpio::v2::{self as gpio, AlternateM, AnyPin, Pin, PinId};
 use crate::time::Hertz;
@@ -95,11 +96,7 @@ where
     I: GclkIo<G>,
 {
     /// TODO
-    pub fn enable<F>(
-        token: GclkInToken<G>,
-        pin: impl AnyPin<Id = I>,
-        freq: F,
-    ) -> Counted<Self, Zero>
+    pub fn enable<F>(token: GclkInToken<G>, pin: impl AnyPin<Id = I>, freq: F) -> Counted<Self, U0>
     where
         F: Into<Hertz>,
     {
@@ -121,7 +118,7 @@ where
 {
 }
 
-impl<G, I> Counted<GclkIn<G, I>, Zero>
+impl<G, I> Counted<GclkIn<G, I>, U0>
 where
     G: GenNum,
     I: GclkIo<G>,
@@ -148,7 +145,7 @@ impl<G, I, N> GclkSource<G> for Counted<GclkIn<G, I>, N>
 where
     G: GenNum,
     I: GclkIo<G>,
-    N: Count,
+    N: Counter,
 {
     type Type = GclkInput;
 
@@ -196,16 +193,16 @@ where
     pub fn new<H, N>(
         token: GclkOutToken<G>,
         pin: impl AnyPin<Id = I>,
-        mut gclk: Counted<H, N>,
+        mut gclk: Counted<Gclk<G, H>, N>,
         pol: bool,
-    ) -> (GclkOut<G, I>, Counted<H, N::Inc>)
+    ) -> (GclkOut<G, I>, Counted<Gclk<G, H>, N::Inc>)
     where
-        H: AnyGclk<GenNum = G>,
+        H: GclkSourceType,
         N: Increment,
     {
-        let freq = gclk.as_ref().freq();
+        let freq = gclk.freq();
         let pin = pin.into().into_alternate();
-        gclk.as_mut().enable_gclk_out(pol);
+        gclk.enable_gclk_out(pol);
         let gclk_out = GclkOut { token, freq, pin };
         (gclk_out, gclk.inc())
     }
@@ -218,13 +215,17 @@ where
     /// TODO
     pub fn disable<H, N>(
         self,
-        mut gclk: Counted<H, N>,
-    ) -> (GclkOutToken<G>, Pin<I, AlternateM>, Counted<H, N::Dec>)
+        mut gclk: Counted<Gclk<G, H>, N>,
+    ) -> (
+        GclkOutToken<G>,
+        Pin<I, AlternateM>,
+        Counted<Gclk<G, H>, N::Dec>,
+    )
     where
-        H: AnyGclk<GenNum = G>,
+        H: GclkSourceType,
         N: Decrement,
     {
-        gclk.as_mut().disable_gclk_out();
+        gclk.disable_gclk_out();
         (self.token, self.pin, gclk.dec())
     }
 }
