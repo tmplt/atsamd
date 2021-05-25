@@ -20,6 +20,7 @@ use crate::pac::NVMCTRL;
 pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
 use crate::typelevel::{Counter, Decrement, Increment, Is, Sealed};
@@ -264,6 +265,8 @@ seq!(N in 2..=11 {
     }
 });
 
+
+
 //==============================================================================
 // Div
 //==============================================================================
@@ -377,14 +380,29 @@ impl Copy for Gclk1Div {}
 //==============================================================================
 
 /// Sealed trait for [`GclkSourceType`]
-pub trait GclkSourceType: Sealed {
+/// TODO
+pub trait GclkSourceType: SourceMarker {
     const GCLK_SRC: GclkSourceEnum;
 }
 
 /// [`GclkSource`] must implement `freq()`
-pub trait GclkSource<G: GenNum>: Sealed {
+/// TODO
+pub trait GclkSource<G: GenNum>: Source {
     type Type: GclkSourceType;
-    fn freq(&self) -> Hertz;
+}
+
+impl<G: GenNum> SourceMarker for G {}
+
+impl<G, T, N> Source for Counted<Gclk<G, T>, N>
+where
+    G: GenNum,
+    T: GclkSourceType,
+    N: Counter,
+{
+    #[inline]
+    fn freq(&self) -> Hertz {
+        self.0.freq()
+    }
 }
 
 //==============================================================================
@@ -646,11 +664,6 @@ macro_rules! impl_gclk1_source {
             N: Counter,
         {
             type Type = Gen1;
-
-            #[inline]
-            fn freq(&self) -> Hertz {
-                self.0.freq()
-            }
         }
     };
 }
@@ -660,56 +673,6 @@ impl_gclk1_source!(Gen0);
 seq!(N in 2..=11 {
     impl_gclk1_source!(Gen#N);
 });
-
-//==============================================================================
-// AnyGclk
-//==============================================================================
-
-/// Common trait for any [`Gclk`]
-pub trait AnyGclk
-where
-    Self: Sealed,
-    Self: Is<Type = SpecificGclk<Self>>,
-{
-    /// Numeric identifier
-    type GenNum: GenNum;
-
-    /// Clock source
-    type Source: GclkSourceType;
-}
-
-impl<G, T> Sealed for Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceType,
-{
-}
-
-/// A [`SpecificGclk`] is a composition of a [`GenNum`] and [`Source`][GclkSourceType]
-pub type SpecificGclk<G> = Gclk<<G as AnyGclk>::GenNum, <G as AnyGclk>::Source>;
-
-impl<G: AnyGclk> AsRef<G> for SpecificGclk<G> {
-    fn as_ref(&self) -> &G {
-        // Always a NOP, since G == SpecificGclk<G>
-        unsafe { core::mem::transmute(self) }
-    }
-}
-
-impl<G: AnyGclk> AsMut<G> for SpecificGclk<G> {
-    fn as_mut(&mut self) -> &mut G {
-        // Always a NOP, since G == SpecificGclk<G>
-        unsafe { core::mem::transmute(self) }
-    }
-}
-
-impl<G, T> AnyGclk for Gclk<G, T>
-where
-    G: GenNum,
-    T: GclkSourceType,
-{
-    type GenNum = G;
-    type Source = T;
-}
 
 //==============================================================================
 // Gclks

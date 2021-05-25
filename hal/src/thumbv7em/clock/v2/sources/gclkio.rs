@@ -5,6 +5,7 @@ use core::marker::PhantomData;
 use seq_macro::seq;
 use typenum::U0;
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::gpio::v2::{self as gpio, AlternateM, AnyPin, Pin, PinId};
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
@@ -141,6 +142,8 @@ impl GclkSourceType for GclkInput {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::GCLKIN;
 }
 
+impl SourceMarker for GclkInput {}
+
 impl<G, I, N> GclkSource<G> for Counted<GclkIn<G, I>, N>
 where
     G: GenNum,
@@ -148,7 +151,14 @@ where
     N: Counter,
 {
     type Type = GclkInput;
+}
 
+impl<G, I, N> Source for Counted<GclkIn<G, I>, N>
+where
+    G: GenNum,
+    I: GclkIo<G>,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq

@@ -1,5 +1,6 @@
 use typenum::{U0, U1};
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::time::{Hertz, U32Ext};
 use crate::typelevel::counted::Counted;
 use crate::typelevel::{Counter, PrivateIncrement, Sealed};
@@ -288,16 +289,11 @@ impl<T: PclkSourceType> Counted<Dfll<ClosedLoop<T>>, U1> {
 // GclkSource
 //==============================================================================
 
-impl<G: GenNum, N: Counter> GclkSource<G> for Counted<Dfll<OpenLoop>, N> {
+impl<G: GenNum, T: LoopMode, N: Counter> GclkSource<G> for Counted<Dfll<T>, N> {
     type Type = marker::Dfll;
-    #[inline]
-    fn freq(&self) -> Hertz {
-        self.0.freq()
-    }
 }
 
-impl<G: GenNum, T: PclkSourceType, N: Counter> GclkSource<G> for Counted<Dfll<ClosedLoop<T>>, N> {
-    type Type = marker::Dfll;
+impl<T: LoopMode, N: Counter> Source for Counted<Dfll<T>, N> {
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq()
@@ -305,7 +301,7 @@ impl<G: GenNum, T: PclkSourceType, N: Counter> GclkSource<G> for Counted<Dfll<Cl
 }
 
 pub mod marker {
-    use super::{GclkSourceEnum, GclkSourceType, Sealed};
+    use super::*;
 
     pub enum Dfll {}
 
@@ -314,4 +310,6 @@ pub mod marker {
     impl GclkSourceType for Dfll {
         const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DFLL;
     }
+
+    impl SourceMarker for Dfll {}
 }

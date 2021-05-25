@@ -9,6 +9,7 @@ use crate::pac::oscctrl::DPLL;
 
 pub use crate::pac::oscctrl::dpll::dpllctrlb::REFCLK_A as DpllSrc;
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
 use crate::typelevel::{Counter, Decrement, Increment, Sealed};
@@ -45,7 +46,7 @@ impl DpllNum for Pll1 {
 //==============================================================================
 
 /// TODO
-pub trait DpllSourceType: Sealed {
+pub trait DpllSourceType: SourceMarker {
     const DPLL_SRC: DpllSrc;
 }
 
@@ -57,10 +58,17 @@ where
     const DPLL_SRC: DpllSrc = DpllSrc::GCLK;
 }
 
+impl<D, T> SourceMarker for Pclk<D, T>
+where
+    D: DpllNum + PclkType,
+    T: PclkSourceType,
+{
+}
+
 /// TODO
-pub trait DpllSource: Sealed {
+/// TODO add Source here
+pub trait DpllSource: Source {
     type Type: DpllSourceType;
-    fn freq(&self) -> Hertz;
 }
 
 //==============================================================================
@@ -361,9 +369,13 @@ impl GclkSourceType for Pll0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL0;
 }
 
+impl SourceMarker for Pll0 {}
+
 impl GclkSourceType for Pll1 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::DPLL1;
 }
+
+impl SourceMarker for Pll1 {}
 
 impl<G, D, T, N> GclkSource<G> for Counted<Dpll<D, T>, N>
 where
@@ -373,7 +385,14 @@ where
     N: Counter,
 {
     type Type = D;
+}
 
+impl<D, T, N> Source for Counted<Dpll<D, T>, N>
+where
+    D: DpllNum + GclkSourceType,
+    T: DpllSourceType,
+    N: Counter,
+{
     #[inline]
     fn freq(&self) -> Hertz {
         self.0.freq()

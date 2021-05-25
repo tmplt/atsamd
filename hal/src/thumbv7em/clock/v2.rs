@@ -4,6 +4,7 @@ use typenum::U1;
 
 use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
+use crate::time::Hertz;
 
 use crate::typelevel::counted::Counted;
 
@@ -88,6 +89,14 @@ impl Tokens {
     pub unsafe fn pac(&mut self) -> Option<PacClocks> {
         self.pac.take()
     }
+}
+
+/// TODO: Super trait of more specific SourceMarker traits
+pub trait SourceMarker: crate::typelevel::Sealed {}
+
+/// TODO: Super trait of more specific Source traits
+pub trait Source: crate::typelevel::Sealed {
+    fn freq(&self) -> Hertz;
 }
 
 /// TODO

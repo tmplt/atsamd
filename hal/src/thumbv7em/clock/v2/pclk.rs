@@ -9,6 +9,7 @@ use crate::pac;
 
 pub use crate::pac::gclk::pchctrl::GEN_A as PclkSourceEnum;
 
+use crate::clock::v2::{Source, SourceMarker};
 use crate::sercom::*;
 use crate::time::Hertz;
 use crate::typelevel::counted::Counted;
@@ -99,7 +100,7 @@ macro_rules! pclk_type {
 //==============================================================================
 
 /// TODO
-pub trait PclkSourceType: GenNum {
+pub trait PclkSourceType: GenNum + SourceMarker {
     const PCLK_SRC: PclkSourceEnum;
 }
 
@@ -110,21 +111,17 @@ seq!(N in 0..=11 {
 });
 
 /// TODO
-pub trait PclkSource {
+pub trait PclkSource: Source {
     type Type: PclkSourceType;
-    fn freq(&self) -> Hertz;
 }
 
-impl<G, N> PclkSource for Counted<G, N>
+impl<G, T, N> PclkSource for Counted<Gclk<G, T>, N>
 where
-    G: AnyGclk,
-    G::GenNum: PclkSourceType,
+    G: PclkSourceType,
+    T: GclkSourceType,
     N: Counter,
 {
-    type Type = G::GenNum;
-    fn freq(&self) -> Hertz {
-        self.0.as_ref().freq()
-    }
+    type Type = G;
 }
 
 //==============================================================================
