@@ -21,7 +21,6 @@ pub use crate::pac::gclk::genctrl::SRC_A as GclkSourceEnum;
 pub use crate::pac::gclk::{RegisterBlock, GENCTRL};
 
 use crate::clock::types::{Counter, Decrement, Enabled, Increment};
-use crate::clock::v2::sources::dfll::marker;
 use crate::clock::v2::{Source, SourceMarker};
 use crate::time::Hertz;
 use crate::typelevel::Sealed;
@@ -115,7 +114,7 @@ impl<G: GenNum> Registers<G> {
     /// Users must never create two simulatenous instances of this `struct` with
     /// the same [`GenNum`]
     #[inline]
-    unsafe fn new() -> Self {
+    pub(super) unsafe fn new() -> Self {
         Registers { gen: PhantomData }
     }
 
@@ -423,18 +422,6 @@ where
     div: u32,
 }
 
-impl Gclk0<marker::Dfll> {
-    pub(super) unsafe fn init(freq: impl Into<Hertz>) -> Self {
-        let token = GclkToken::new();
-        Gclk {
-            token,
-            src: PhantomData,
-            freq: freq.into(),
-            div: 1,
-        }
-    }
-}
-
 impl<G, T> Gclk<G, T>
 where
     G: GenNum,
@@ -442,15 +429,14 @@ where
 {
     /// Taking a [`GclkToken`] and returning a [`GclkConfig`] which when enabled becomes a [`Gclk`]
     #[inline]
-    pub fn new<S>(mut token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
+    pub fn new<S>(token: GclkToken<G>, source: S) -> (Gclk<G, T>, S::Inc)
     where
         S: GclkSource<G, Type = T> + Increment,
     {
         let freq = source.freq();
         let div = 1;
         // TODO: Consider moving all HW calls outside of ::new and ::free
-        // Also setters.
-        token.set_source(T::GCLK_SRC);
+        // Also setters!
         let config = Gclk {
             token,
             src: PhantomData,
@@ -558,6 +544,7 @@ where
     /// Enabling a [`GclkConfig`] results in a [`Gclk`]
     #[inline]
     pub fn enable(mut self) -> Enabled<Gclk<G, T>, U0> {
+        self.token.set_source(T::GCLK_SRC);
         self.token.enable();
         Enabled::new(self)
     }
