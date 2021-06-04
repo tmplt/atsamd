@@ -439,10 +439,6 @@ where
 // GclkSource
 //==============================================================================
 
-impl SourceMarker for Osc0 {}
-
-impl SourceMarker for Osc1 {}
-
 impl GclkSourceMarker for Osc0 {
     const GCLK_SRC: GclkSourceEnum = GclkSourceEnum::XOSC0;
 }
@@ -465,9 +461,13 @@ where
 // DpllSource
 //==============================================================================
 
+impl SourceMarker for Osc0 {}
+
 impl DpllSourceMarker for Osc0 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC0;
 }
+
+impl SourceMarker for Osc1 {}
 
 impl DpllSourceMarker for Osc1 {
     const DPLL_SRC: DpllSrc = DpllSrc::XOSC1;
