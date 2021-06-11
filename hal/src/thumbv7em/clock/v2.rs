@@ -14,6 +14,47 @@ use crate::pac::osc32kctrl::rtcctrl::RTCSEL_A;
 use crate::pac::{GCLK, MCLK, NVMCTRL, OSC32KCTRL, OSCCTRL};
 use crate::time::Hertz;
 
+pub mod presets {
+    use super::*;
+    use crate::gpio::v2::{AnyPin, PA00, PA01};
+    pub fn gclk0_120mhz_gclk5_2mhz_xosc32k_osculp32k(
+        oscctrl: OSCCTRL,
+        osc32kctrl: OSC32KCTRL,
+        gclk: GCLK,
+        mclk: MCLK,
+        nvmctrl: &mut NVMCTRL,
+        xosc32k_in: impl AnyPin<Id = PA00>,
+        xosc32k_out: impl AnyPin<Id = PA01>,
+    ) -> (
+        Enabled<gclk::Gclk<gclk::Gen0, dpll::Pll0>, U1>,
+        Enabled<gclk::Gclk<gclk::Gen5, dfll::marker::Dfll>, U1>,
+        Enabled<xosc32k::Xosc32k<xosc32k::Xosc32kMode>, U0>,
+        Enabled<dpll::Dpll<dpll::Pll0, dpll::PclkDriven<dpll::Pll0, gclk::Gen5>>, U1>,
+        Enabled<dfll::Dfll<dfll::OpenLoop>, U1>,
+        Enabled<osculp32k::OscUlp32k, U0>,
+        /* Tokens, */
+    ) {
+        let (gclk0, dfll, osculp32k, tokens) =
+            retrieve_clocks(oscctrl, osc32kctrl, gclk, mclk, nvmctrl);
+        let (gclk5, dfll) = gclk::Gclk::new(tokens.gclks.gclk5, dfll);
+        let gclk5 = gclk5.div(gclk::GclkDiv::Div(24)).enable();
+        let (pclk_dpll0, gclk5) = pclk::Pclk::enable(tokens.pclks.dpll0, gclk5);
+        let dpll0 = dpll::Dpll0::from_pclk(tokens.dpll0, pclk_dpll0)
+            .set_loop_div(60, 0)
+            .enable();
+        let (gclk0, dfll, dpll0) = gclk0.swap(dfll, dpll0);
+
+        let xosc32k = xosc32k::Xosc32k::from_crystal(tokens.xosc32k, xosc32k_in, xosc32k_out)
+            .enable_32k(true)
+            .enable_1k(true)
+            .enable();
+        // TODO: What do we want to do about partial move problem?
+        (
+            gclk0, gclk5, xosc32k, dpll0, dfll, osculp32k, /* tokens */
+        )
+    }
+}
+
 pub mod ahb;
 pub mod apb;
 pub mod dfll;
