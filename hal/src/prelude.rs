@@ -1,5 +1,5 @@
 //! Import the prelude to gain convenient access to helper traits
-pub use crate::eic::pin::EicPin;
+pub use crate::eic::v1::pin::EicPin;
 #[allow(deprecated)]
 pub use crate::gpio::v1::GpioExt as _atsamd21_hal_gpio_GpioExt;
 #[allow(deprecated)]
