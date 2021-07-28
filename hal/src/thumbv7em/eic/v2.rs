@@ -2,9 +2,12 @@ use core::marker::PhantomData;
 
 use seq_macro::seq;
 
+use typenum::U0;
+
+use crate::clock::types::{Counter, Decrement, Enabled, Increment, PrivateIncrement};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
-use crate::clock::v2::rtc::{Active1k, Active32k, Output1k, Output32k};
+use crate::clock::v2::rtc::{Active32k, Output1k};
 use crate::gpio::v2::{self as gpio, Alternate, AnyPin, Interrupt, InterruptConfig, Pin, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, RegisterBlock};
 use crate::typelevel::{NoneT, Sealed};
@@ -118,6 +121,25 @@ seq!(N in 00..16 {
 });
 
 //==============================================================================
+// ClockMode
+//==============================================================================
+
+// Synchronous vs. asynchronous detection
+pub trait ClockMode: Sealed {}
+
+pub struct NoClockOnlyAsync;
+impl Sealed for NoClockOnlyAsync {}
+impl ClockMode for NoClockOnlyAsync {}
+
+// When in WithClock, we have to store a clock resource
+pub struct WithClock<C: EIClkSrc> {
+    #[allow(dead_code)]
+    clock: PhantomData<C>,
+}
+impl<C: EIClkSrc> Sealed for WithClock<C> {}
+impl<C: EIClkSrc> ClockMode for WithClock<C> {}
+
+//==============================================================================
 // DetectionMode
 //==============================================================================
 
@@ -128,13 +150,9 @@ pub struct AsyncMode;
 impl Sealed for AsyncMode {}
 impl DetectionMode for AsyncMode {}
 
-// When in SyncMode, we have to store a clock resource
-pub struct SyncMode<C: EIClkSrc> {
-    #[allow(dead_code)]
-    clock: C,
-}
-impl<C: EIClkSrc> Sealed for SyncMode<C> {}
-impl<C: EIClkSrc> DetectionMode for SyncMode<C> {}
+pub struct SyncMode;
+impl Sealed for SyncMode {}
+impl DetectionMode for SyncMode {}
 
 // EI clock source for synchronous detection modes
 // TODO should this need Sealed?
@@ -148,7 +166,7 @@ impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
 }
 
 // Ultra-low power oscillator can be used instead
-impl<Y: Output1k> EIClkSrc for OscUlp32k<Active32k, Y> {
+impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
 
@@ -158,27 +176,31 @@ impl<Y: Output1k> EIClkSrc for OscUlp32k<Active32k, Y> {
 
 // The pin-level struct
 // It must be generic over PinId, Interrupt PinMode configuration
-// (i.e. Floating, PullUp, or PullDown), and DetectionMode
-pub struct ExtInt<I, C, M>
+// (i.e. Floating, PullUp, or PullDown)
+pub struct ExtInt<I, T, C, M>
 where
     I: GetEINum,
+    T: ExtIntSourceMarker,
     C: InterruptConfig,
     M: DetectionMode,
 {
     regs: Registers<I::EINum>,
+    src: PhantomData<T>,
     pin: Pin<I, Interrupt<C>>,
     mode: M,
 }
 
-impl<I, C> ExtInt<I, C, AsyncMode>
+impl<I, T, C> ExtInt<I, T, C, AsyncMode>
 where
     I: GetEINum,
+    T: ExtIntSourceMarker,
     C: InterruptConfig,
 {
-    pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
+            src: PhantomData,
             pin: pin.into(),
             mode: AsyncMode,
         }
@@ -190,18 +212,19 @@ where
     }
 }
 
-impl<I, C, K> ExtInt<I, C, SyncMode<K>>
+impl<I, T, C> ExtInt<I, T, C, SyncMode>
 where
     I: GetEINum,
+    T: ExtIntSourceMarker,
     C: InterruptConfig,
-    K: EIClkSrc,
 {
-    pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>, clock: K) -> Self {
+    fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
+            src: PhantomData,
             pin: pin.into(),
-            mode: SyncMode { clock },
+            mode: SyncMode,
         }
     }
 
@@ -209,11 +232,11 @@ where
     // since they require a clock
 
     // Must have access to the EIController here
-    pub fn enable_debouncer(&mut self, eic: &mut EIController<K>) {
-        // Could pass the MASK directly instead of making this function
-        // generic over the EINum. Either way is fine.
-        eic.enable_debouncer::<I::EINum>();
-    }
+    //pub fn enable_debouncer(&mut self, eic: &mut EIController<K>) {
+    //// Could pass the MASK directly instead of making this function
+    //// generic over the EINum. Either way is fine.
+    //eic.enable_debouncer::<I::EINum>();
+    //}
 }
 
 //==============================================================================
@@ -280,20 +303,18 @@ impl<C: EIClkSrc> OptionalEIClock for C {
 // Struct to represent the external interrupt controller
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
-pub struct EIController<C: OptionalEIClock> {
+pub struct EIController<M: ClockMode>
+where
+    M: ClockMode,
+{
     eic: crate::pac::EIC,
-    optional_clk: C,
+    mode: M,
 }
 
-impl<C> EIController<C>
+impl<M> EIController<M>
 where
-    C: OptionalEIClock,
+    M: ClockMode,
 {
-    // Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(eic: crate::pac::EIC, optional_clk: C) -> (Self, Tokens) {
-        unsafe { (Self { eic, optional_clk}, Tokens::new()) }
-    }
-
     // Private function that should be accessed through the ExtInt
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
@@ -303,6 +324,112 @@ where
             w.debouncen().bits(bits | E::MASK)
         });
     }
+}
+
+impl<K> EIController<WithClock<K>>
+where
+    K: EIClkSrc + ExtIntSourceMarker + Increment,
+{
+    /// Create an EIC Controller with a clock source
+    ///
+    /// This allows for full EIC functionality
+    ///
+    /// Safety
+    ///
+    /// Safe because you trade a singleton PAC struct for new singletons
+    pub fn new<S>(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc)
+    where
+        S: ExtIntSource + Increment,
+    {
+        unsafe {
+            (
+                Enabled::new(Self {
+                    eic,
+                    mode: WithClock { clock: PhantomData },
+                }),
+                Tokens::new(),
+                clock.inc(),
+            )
+        }
+    }
+}
+
+impl EIController<NoClockOnlyAsync> {
+    /// Create an EIC Controller without a clock source
+    ///
+    /// This limits the EIC functionality
+    ///
+    /// Safety
+    ///
+    /// Safe because you trade a singleton PAC struct for new singletons
+    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<Self, U0>, Tokens) {
+        unsafe {
+            (
+                Enabled::new(Self {
+                    eic,
+                    mode: NoClockOnlyAsync {},
+                }),
+                Tokens::new(),
+            )
+        }
+    }
+}
+
+impl<K> Enabled<EIController<WithClock<K>>, U0>
+where
+    K: EIClkSrc + ExtIntSourceMarker + Decrement,
+{
+    pub fn disable<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
+    where
+        S: ExtIntSource + Decrement,
+    {
+        (self.0.eic, clock.dec())
+    }
+}
+
+impl Enabled<EIController<NoClockOnlyAsync>, U0> {
+    pub fn disable(self, _tokens: Tokens) -> crate::pac::EIC {
+        self.0.eic
+    }
+}
+
+impl<K, N> Enabled<EIController<WithClock<K>>, N>
+where
+    K: EIClkSrc,
+    N: Counter,
+{
+    //pub fn new_sync(token: Token<I::EINum>, pin: Pin) -> (Self, ExtInt<I, C, SyncMode>) {
+    //pub fn new_sync() ->  {
+    //ExtInt::new_sync(token, pin, )
+    //}
+
+    //pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> ExtInt<I, C, AsyncMode> {
+    // Configure the ExtInt (e.g. set the Asynchronous Mode register)
+    //ExtInt::new_async(token, pin)
+    // Configure the ExtInt (e.g. set the Asynchronous Mode register)
+    //}
+}
+
+//==============================================================================
+// ExtIntSource
+//==============================================================================
+
+pub enum EicMode {
+    /// TODO
+    NOCLOCK = 0,
+    /// TODO
+    WITHCLOCK = 1,
+}
+
+pub trait ExtIntSourceMarker: Sealed {
+    /// Does the controller have clock functionality
+    const EIC_CLOCK: EicMode;
+}
+
+//pub trait ExtIntSource<I: GetEINum>: Sealed {
+pub trait ExtIntSource: Sealed {
+    /// Associated source marker type
+    type Type: ExtIntSourceMarker;
 }
 
 //==============================================================================
