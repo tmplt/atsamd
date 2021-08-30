@@ -127,12 +127,21 @@ seq!(N in 00..16 {
 // Synchronous vs. asynchronous detection
 pub trait ClockMode: Sealed {}
 
+/// AsyncMode only allows asynchronous edge detection
 pub struct NoClockOnlyAsync;
 impl Sealed for NoClockOnlyAsync {}
 impl ClockMode for NoClockOnlyAsync {}
 
 // When in WithClock, we have to store a clock resource
+/// SyncMode allows full EIC functionality
+///
+/// Required if:
+/// * The NMI Using edge detection or filtering
+/// * One EXTINT uses filtering
+/// * One EXTINT uses synchronous edge detection
+/// * One EXTINT uses debouncing
 pub struct WithClock<C: EIClkSrc> {
+    /// Clock resource
     #[allow(dead_code)]
     clock: PhantomData<C>,
 }
@@ -408,6 +417,19 @@ where
     //ExtInt::new_async(token, pin)
     // Configure the ExtInt (e.g. set the Asynchronous Mode register)
     //}
+}
+
+impl<I, C, N> Enabled<EIController<NoClockOnlyAsync>, N>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    N: Counter,
+{
+    pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> ExtInt<I, C, AsyncMode> {
+        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
+        ExtInt::new_async(token, pin)
+        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
+    }
 }
 
 //==============================================================================
