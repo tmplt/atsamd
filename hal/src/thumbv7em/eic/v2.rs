@@ -18,6 +18,8 @@ use crate::typelevel::{NoneT, Sealed};
 
 // Need a custom type, because the PAC has 8 identical copies
 // of the same enum. There's probably a way to patch the PAC
+/// Detection Mode
+/// TODO
 pub enum Sense {
     None = 0,
     Rise,
@@ -33,13 +35,18 @@ pub enum Sense {
 
 // Type-level enum for the ExtInt number
 // Each PinId is mapped to one and only one
+/// TODO
 pub trait EINum: Sealed {
     const NUM: u8;
     const MASK: u16 = 1 << Self::NUM;
+    // Filten described by arithmetic series
+    // 7+(n-1)*4
+    const FILTEN: u32 = 1 << (7 + (Self::NUM - 1) * 4);
     // Possibly other constants
 }
 
 seq!(N in 00..16 {
+    /// TODO
     pub enum EI#N {}
     impl Sealed for EI#N {}
     impl EINum for EI#N {
@@ -53,6 +60,7 @@ seq!(N in 00..16 {
 
 // Private struct that provides access to the EIC registers from
 // the ExtInt types. We must be careful about memory safety here
+/// TODO
 struct Registers<E: EINum> {
     ei_num: PhantomData<E>,
 }
@@ -60,16 +68,19 @@ struct Registers<E: EINum> {
 impl<E: EINum> Registers<E> {
     // Unsafe because you must make there is only one copy
     // of Registers for each unique E
+    /// TODO
     unsafe fn new() -> Self {
         Registers {
             ei_num: PhantomData,
         }
     }
 
+    /// TODO
     fn eic(&self) -> &RegisterBlock {
         unsafe { &*crate::pac::EIC::ptr() }
     }
 
+    /// TODO
     fn pin_state(&self) -> bool {
         let state = self.eic().pinstate.read().pinstate().bits();
         (state & E::MASK) != 0
@@ -87,12 +98,14 @@ impl<E: EINum> Registers<E> {
 // We need to create exactly 16 of these at boot.
 // A token will be consumed when creating an ExtInt.
 // This will prevent multiple pins from using the same interrupt
+/// TODO
 pub struct Token<E: EINum> {
     regs: Registers<E>,
 }
 
 impl<E: EINum> Token<E> {
     // Unsafe because you must make sure each Token is a singleton
+    /// TODO
     unsafe fn new() -> Self {
         Token {
             regs: Registers::new(),
@@ -101,6 +114,7 @@ impl<E: EINum> Token<E> {
 }
 
 seq!(N in 00..16 {
+    /// TODO
     pub struct Tokens {
         #(
             #[allow(dead_code)]
@@ -110,6 +124,7 @@ seq!(N in 00..16 {
 
     impl Tokens {
         // Unsafe because you must make sure each Token is a singleton
+        /// TODO
         unsafe fn new() -> Self {
             Tokens {
                 #(
@@ -125,6 +140,7 @@ seq!(N in 00..16 {
 //==============================================================================
 
 // Synchronous vs. asynchronous detection
+/// TODO
 pub trait ClockMode: Sealed {}
 
 /// AsyncMode only allows asynchronous edge detection
@@ -153,29 +169,35 @@ impl<C: EIClkSrc> ClockMode for WithClock<C> {}
 //==============================================================================
 
 // Synchronous vs. asynchronous detection
+/// TODO
 pub trait DetectionMode: Sealed {}
 
+/// TODO
 pub struct AsyncMode;
 impl Sealed for AsyncMode {}
 impl DetectionMode for AsyncMode {}
 
+/// TODO
 pub struct SyncMode;
 impl Sealed for SyncMode {}
 impl DetectionMode for SyncMode {}
 
 // EI clock source for synchronous detection modes
 // TODO should this need Sealed?
+/// TODO
 pub trait EIClkSrc {
     const CKSEL: CKSEL_A;
 }
 
 // Peripheral channel clock, routed from a GCLK
 impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
+    /// TODO
     const CKSEL: CKSEL_A = CKSEL_A::CLK_GCLK;
 }
 
 // Ultra-low power oscillator can be used instead
 impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
+    /// TODO
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
 
@@ -186,6 +208,7 @@ impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
 // The pin-level struct
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
+/// TODO
 pub struct ExtInt<I, C, M>
 where
     I: GetEINum,
@@ -193,7 +216,6 @@ where
     M: DetectionMode,
 {
     regs: Registers<I::EINum>,
-    //src: PhantomData<T>,
     pin: Pin<I, Interrupt<C>>,
     mode: M,
 }
@@ -203,6 +225,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
 {
+    /// TODO
     fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
@@ -213,6 +236,7 @@ where
     }
 
     // Do not need access to the EIController here
+    /// TODO
     pub fn pin_state(&self) -> bool {
         self.regs.pin_state()
     }
@@ -223,6 +247,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
 {
+    /// TODO
     fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
@@ -236,6 +261,7 @@ where
     // since they require a clock
 
     // Must have access to the EIController here
+    /// TODO
     pub fn enable_debouncer<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
     where
         K: EIClkSrc + ClockMode,
@@ -244,6 +270,18 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncer::<I::EINum>();
+    }
+
+    // Must have access to the EIController here
+    /// TODO
+    pub fn enable_filtering<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
+    where
+        K: EIClkSrc + ClockMode,
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.enable_filtering::<I::EINum>();
     }
 }
 
@@ -311,6 +349,7 @@ impl<C: EIClkSrc> OptionalEIClock for C {
 // Struct to represent the external interrupt controller
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
+/// TODO
 pub struct EIController<M: ClockMode>
 where
     M: ClockMode,
@@ -373,6 +412,7 @@ impl<K> Enabled<EIController<WithClock<K>>, U0>
 where
     K: EIClkSrc + Decrement,
 {
+    /// TODO
     pub fn disable<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
     where
         //S: ExtIntSource + Decrement,
@@ -383,6 +423,7 @@ where
 }
 
 impl Enabled<EIController<NoClockOnlyAsync>, U0> {
+    /// TODO
     pub fn disable(self, _tokens: Tokens) -> crate::pac::EIC {
         self.0.eic
     }
@@ -393,6 +434,7 @@ where
     K: EIClkSrc,
     N: Counter,
 {
+    /// TODO
     pub fn new_sync<I, C>(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
@@ -407,11 +449,22 @@ where
     // Private function that should be accessed through the ExtInt
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
+    /// TODO
     fn enable_debouncer<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
             w.debouncen().bits(bits | E::MASK)
         });
+    }
+
+    // Private function that should be accessed through the ExtInt
+    /// TODO
+    fn enable_filtering<E: EINum>(&mut self) {
+        let index = match E::NUM {
+            0..=7 => 0,
+            _ => 1,
+        };
+        self.0.eic.config[index].write(|w| unsafe { w.bits(E::FILTEN) });
     }
 }
 
@@ -419,6 +472,7 @@ impl<N> Enabled<EIController<NoClockOnlyAsync>, N>
 where
     N: Counter,
 {
+    /// TODO
     pub fn new_async<I, C>(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
@@ -435,7 +489,7 @@ where
 // GetEINum
 //==============================================================================
 
-// Type-level function to get the EINum from a PinId
+/// Type-level function to get the EINum from a PinId
 pub trait GetEINum: PinId {
     type EINum: EINum;
 }
