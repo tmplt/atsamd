@@ -10,7 +10,7 @@ use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
 use crate::gpio::v2::{self as gpio, Interrupt, InterruptConfig, Pin, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, RegisterBlock};
-use crate::typelevel::{NoneT, Sealed};
+use crate::typelevel::Sealed;
 
 //==============================================================================
 // Sense
@@ -230,7 +230,7 @@ where
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            pin: pin.into(),
+            pin,
             mode: AsyncMode,
         }
     }
@@ -252,7 +252,7 @@ where
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            pin: pin.into(),
+            pin,
             mode: SyncMode,
         }
     }
