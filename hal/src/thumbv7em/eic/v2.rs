@@ -189,7 +189,6 @@ impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
 pub struct ExtInt<I, C, M>
 where
     I: GetEINum,
-    //T: ExtIntSourceMarker,
     C: InterruptConfig,
     M: DetectionMode,
 {
@@ -199,18 +198,15 @@ where
     mode: M,
 }
 
-//impl<I, T, C> ExtInt<I, T, C, AsyncMode>
 impl<I, C> ExtInt<I, C, AsyncMode>
 where
     I: GetEINum,
-    //T: ExtIntSourceMarker,
     C: InterruptConfig,
 {
     fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            //src: PhantomData,
             pin: pin.into(),
             mode: AsyncMode,
         }
@@ -225,14 +221,12 @@ where
 impl<I, C> ExtInt<I, C, SyncMode>
 where
     I: GetEINum,
-    //T: ExtIntSourceMarker,
     C: InterruptConfig,
 {
     fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            //src: PhantomData,
             pin: pin.into(),
             mode: SyncMode,
         }
@@ -327,7 +321,6 @@ where
 
 impl<K> EIController<WithClock<K>>
 where
-    //K: EIClkSrc + ExtIntSourceMarker + Increment,
     K: EIClkSrc + Increment,
 {
     /// Create an EIC Controller with a clock source
@@ -378,7 +371,6 @@ impl EIController<NoClockOnlyAsync> {
 
 impl<K> Enabled<EIController<WithClock<K>>, U0>
 where
-    //K: EIClkSrc + ExtIntSourceMarker + Decrement,
     K: EIClkSrc + Decrement,
 {
     pub fn disable<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
@@ -438,30 +430,6 @@ where
         ExtInt::new_async(token, pin)
     }
 }
-
-//==============================================================================
-// ExtIntSource
-//==============================================================================
-
-/*
-pub enum EicMode {
-    /// TODO
-    NOCLOCK = 0,
-    /// TODO
-    WITHCLOCK = 1,
-}
-
-pub trait ExtIntSourceMarker: Sealed {
-    /// Does the controller have clock functionality
-    const EIC_CLOCK: EicMode;
-}
-
-//pub trait ExtIntSource<I: GetEINum>: Sealed {
-pub trait ExtIntSource: Sealed {
-    /// Associated source marker type
-    type Type: ExtIntSourceMarker;
-}
-*/
 
 //==============================================================================
 // GetEINum
