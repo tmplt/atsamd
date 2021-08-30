@@ -4,11 +4,11 @@ use seq_macro::seq;
 
 use typenum::U0;
 
-use crate::clock::types::{Counter, Decrement, Enabled, Increment, PrivateIncrement};
+use crate::clock::types::{Counter, Decrement, Enabled, Increment};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
-use crate::gpio::v2::{self as gpio, Alternate, AnyPin, Interrupt, InterruptConfig, Pin, PinId};
+use crate::gpio::v2::{self as gpio, Interrupt, InterruptConfig, Pin, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, RegisterBlock};
 use crate::typelevel::{NoneT, Sealed};
 
@@ -186,30 +186,31 @@ impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
 // The pin-level struct
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
-pub struct ExtInt<I, T, C, M>
+pub struct ExtInt<I, C, M>
 where
     I: GetEINum,
-    T: ExtIntSourceMarker,
+    //T: ExtIntSourceMarker,
     C: InterruptConfig,
     M: DetectionMode,
 {
     regs: Registers<I::EINum>,
-    src: PhantomData<T>,
+    //src: PhantomData<T>,
     pin: Pin<I, Interrupt<C>>,
     mode: M,
 }
 
-impl<I, T, C> ExtInt<I, T, C, AsyncMode>
+//impl<I, T, C> ExtInt<I, T, C, AsyncMode>
+impl<I, C> ExtInt<I, C, AsyncMode>
 where
     I: GetEINum,
-    T: ExtIntSourceMarker,
+    //T: ExtIntSourceMarker,
     C: InterruptConfig,
 {
     fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            src: PhantomData,
+            //src: PhantomData,
             pin: pin.into(),
             mode: AsyncMode,
         }
@@ -221,17 +222,17 @@ where
     }
 }
 
-impl<I, T, C> ExtInt<I, T, C, SyncMode>
+impl<I, C> ExtInt<I, C, SyncMode>
 where
     I: GetEINum,
-    T: ExtIntSourceMarker,
+    //T: ExtIntSourceMarker,
     C: InterruptConfig,
 {
     fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
-            src: PhantomData,
+            //src: PhantomData,
             pin: pin.into(),
             mode: SyncMode,
         }
@@ -241,11 +242,15 @@ where
     // since they require a clock
 
     // Must have access to the EIController here
-    //pub fn enable_debouncer(&mut self, eic: &mut EIController<K>) {
-    //// Could pass the MASK directly instead of making this function
-    //// generic over the EINum. Either way is fine.
-    //eic.enable_debouncer::<I::EINum>();
-    //}
+    pub fn enable_debouncer<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
+    where
+        K: EIClkSrc + ClockMode,
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.enable_debouncer::<I::EINum>();
+    }
 }
 
 //==============================================================================
@@ -320,24 +325,10 @@ where
     mode: M,
 }
 
-impl<M> EIController<M>
-where
-    M: ClockMode,
-{
-    // Private function that should be accessed through the ExtInt
-    // Could pass the MASK directly instead of making this function
-    // generic over the EINum. Either way is fine.
-    fn enable_debouncer<E: EINum>(&mut self) {
-        self.eic.debouncen.modify(|r, w| unsafe {
-            let bits = r.debouncen().bits();
-            w.debouncen().bits(bits | E::MASK)
-        });
-    }
-}
-
 impl<K> EIController<WithClock<K>>
 where
-    K: EIClkSrc + ExtIntSourceMarker + Increment,
+    //K: EIClkSrc + ExtIntSourceMarker + Increment,
+    K: EIClkSrc + Increment,
 {
     /// Create an EIC Controller with a clock source
     ///
@@ -348,7 +339,8 @@ where
     /// Safe because you trade a singleton PAC struct for new singletons
     pub fn new<S>(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc)
     where
-        S: ExtIntSource + Increment,
+        //S: ExtIntSource + Increment,
+        S: EIClkSrc + Increment,
     {
         unsafe {
             (
@@ -386,11 +378,13 @@ impl EIController<NoClockOnlyAsync> {
 
 impl<K> Enabled<EIController<WithClock<K>>, U0>
 where
-    K: EIClkSrc + ExtIntSourceMarker + Decrement,
+    //K: EIClkSrc + ExtIntSourceMarker + Decrement,
+    K: EIClkSrc + Decrement,
 {
     pub fn disable<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
     where
-        S: ExtIntSource + Decrement,
+        //S: ExtIntSource + Decrement,
+        S: EIClkSrc + Decrement,
     {
         (self.0.eic, clock.dec())
     }
@@ -407,28 +401,41 @@ where
     K: EIClkSrc,
     N: Counter,
 {
-    //pub fn new_sync(token: Token<I::EINum>, pin: Pin) -> (Self, ExtInt<I, C, SyncMode>) {
-    //pub fn new_sync() ->  {
-    //ExtInt::new_sync(token, pin, )
-    //}
+    pub fn new_sync<I, C>(
+        token: Token<I::EINum>,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> ExtInt<I, C, SyncMode>
+    where
+        I: GetEINum,
+        C: InterruptConfig,
+    {
+        ExtInt::new_sync(token, pin)
+    }
 
-    //pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> ExtInt<I, C, AsyncMode> {
-    // Configure the ExtInt (e.g. set the Asynchronous Mode register)
-    //ExtInt::new_async(token, pin)
-    // Configure the ExtInt (e.g. set the Asynchronous Mode register)
-    //}
+    // Private function that should be accessed through the ExtInt
+    // Could pass the MASK directly instead of making this function
+    // generic over the EINum. Either way is fine.
+    fn enable_debouncer<E: EINum>(&mut self) {
+        self.0.eic.debouncen.modify(|r, w| unsafe {
+            let bits = r.debouncen().bits();
+            w.debouncen().bits(bits | E::MASK)
+        });
+    }
 }
 
-impl<I, C, N> Enabled<EIController<NoClockOnlyAsync>, N>
+impl<N> Enabled<EIController<NoClockOnlyAsync>, N>
 where
-    I: GetEINum,
-    C: InterruptConfig,
     N: Counter,
 {
-    pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> ExtInt<I, C, AsyncMode> {
-        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
+    pub fn new_async<I, C>(
+        token: Token<I::EINum>,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> ExtInt<I, C, AsyncMode>
+    where
+        I: GetEINum,
+        C: InterruptConfig,
+    {
         ExtInt::new_async(token, pin)
-        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
     }
 }
 
@@ -436,6 +443,7 @@ where
 // ExtIntSource
 //==============================================================================
 
+/*
 pub enum EicMode {
     /// TODO
     NOCLOCK = 0,
@@ -453,6 +461,7 @@ pub trait ExtIntSource: Sealed {
     /// Associated source marker type
     type Type: ExtIntSourceMarker;
 }
+*/
 
 //==============================================================================
 // GetEINum
