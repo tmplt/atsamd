@@ -226,7 +226,7 @@ where
     C: InterruptConfig,
 {
     /// TODO
-    fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
@@ -248,13 +248,19 @@ where
     C: InterruptConfig,
 {
     /// TODO
-    fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
             pin: pin.into(),
             mode: SyncMode,
         }
+    }
+
+    // Do not need access to the EIController here
+    /// TODO
+    pub fn pin_state(&self) -> bool {
+        self.regs.pin_state()
     }
 
     // Methods related to filtering and debouncing go here,
@@ -264,7 +270,7 @@ where
     /// TODO
     pub fn enable_debouncer<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
     where
-        K: EIClkSrc + ClockMode,
+        K: EIClkSrc,
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
@@ -276,7 +282,7 @@ where
     /// TODO
     pub fn enable_filtering<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
     where
-        K: EIClkSrc + ClockMode,
+        K: EIClkSrc,
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
@@ -321,28 +327,6 @@ where
 //}
 
 //==============================================================================
-// OptionalEIClock
-//==============================================================================
-
-/// Type-level equivalent of `Option<EIClock>`
-///
-/// See the [`OptionalKind`] documentation for more details on the pattern.
-///
-/// [`OptionalKind`]: crate::typelevel#optionalkind-trait-pattern
-/// TODO Sealed?
-pub trait OptionalEIClock {
-    type EIClock: OptionalEIClock;
-}
-
-impl OptionalEIClock for NoneT {
-    type EIClock = NoneT;
-}
-
-impl<C: EIClkSrc> OptionalEIClock for C {
-    type EIClock = C;
-}
-
-//==============================================================================
 // EIController
 //==============================================================================
 
@@ -369,11 +353,7 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new<S>(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc)
-    where
-        //S: ExtIntSource + Increment,
-        S: EIClkSrc + Increment,
-    {
+    pub fn new(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc) {
         unsafe {
             (
                 Enabled::new(Self {
