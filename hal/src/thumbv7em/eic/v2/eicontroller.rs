@@ -173,6 +173,7 @@ where
 {
     /// TODO
     pub fn new_sync<I, C>(
+        &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
     ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
@@ -222,12 +223,14 @@ where
     }
 }
 
-impl<N> Enabled<EIController<NoClockOnlyAsync>, N>
+impl<M, N> Enabled<EIController<M>, N>
 where
+    M: ClockMode,
     N: Counter,
 {
     /// TODO
     pub fn new_async<I, C>(
+        &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
     ) -> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>

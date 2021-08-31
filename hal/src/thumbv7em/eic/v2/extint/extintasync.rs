@@ -28,7 +28,7 @@ where
     C: InterruptConfig,
 {
     /// TODO
-    pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub(crate) fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
         AsyncExtInt {
             regs: token.regs,

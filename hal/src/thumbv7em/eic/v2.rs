@@ -34,49 +34,49 @@ pub enum Sense {
 }
 
 /// TODO
-pub trait SenseMode: Sealed {
+pub trait SenseModeT: Sealed {
     const SENSE: Sense;
 }
 
 /// TODO
 pub struct SenseNone {}
 impl Sealed for SenseNone {}
-impl SenseMode for SenseNone {
+impl SenseModeT for SenseNone {
     const SENSE: Sense = Sense::None;
 }
 
 /// TODO
 pub struct SenseRise {}
 impl Sealed for SenseRise {}
-impl SenseMode for SenseRise {
+impl SenseModeT for SenseRise {
     const SENSE: Sense = Sense::Rise;
 }
 
 /// TODO
 pub struct SenseFall {}
 impl Sealed for SenseFall {}
-impl SenseMode for SenseFall {
+impl SenseModeT for SenseFall {
     const SENSE: Sense = Sense::Fall;
 }
 
 /// TODO
 pub struct SenseBoth {}
 impl Sealed for SenseBoth {}
-impl SenseMode for SenseBoth {
+impl SenseModeT for SenseBoth {
     const SENSE: Sense = Sense::Both;
 }
 
 /// TODO
 pub struct SenseHigh {}
 impl Sealed for SenseHigh {}
-impl SenseMode for SenseHigh {
+impl SenseModeT for SenseHigh {
     const SENSE: Sense = Sense::High;
 }
 
 /// TODO
 pub struct SenseLow {}
 impl Sealed for SenseLow {}
-impl SenseMode for SenseLow {
+impl SenseModeT for SenseLow {
     const SENSE: Sense = Sense::Low;
 }
 
@@ -85,7 +85,7 @@ impl SenseMode for SenseLow {
 //==============================================================================
 
 /// TODO
-pub trait Debouncing: Sealed {}
+pub trait DebonucingT: Sealed {}
 
 /// Debouncing is enabled
 pub struct DebouncingEnabled {}
@@ -111,17 +111,17 @@ pub struct DebouncerSettings {
 //==============================================================================
 
 /// TODO
-pub trait Filtering: Sealed {}
+pub trait FilteringT: Sealed {}
 
 /// Filtering is enabled
 pub struct FilteringEnabled {}
 impl Sealed for FilteringEnabled {}
-impl Filtering for FilteringEnabled {}
+impl FilteringT for FilteringEnabled {}
 
 /// Filtering is disabled
 pub struct FilteringDisabled;
 impl Sealed for FilteringDisabled {}
-impl Filtering for FilteringDisabled {}
+impl FilteringT for FilteringDisabled {}
 
 //==============================================================================
 // EINum

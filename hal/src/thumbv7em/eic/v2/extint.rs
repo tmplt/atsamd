@@ -4,8 +4,11 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
-pub mod extintsync;
 pub mod extintasync;
+pub mod extintsync;
+
+pub use extintasync::*;
+pub use extintsync::*;
 
 //==============================================================================
 // ExtInt
@@ -31,7 +34,6 @@ where
     sensemode: PhantomData<S>,
 }
 
-
 impl<I, C, F, B, S> ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
@@ -55,7 +57,6 @@ where
     S: SenseMode,
 {
 }
-
 
 //==============================================================================
 // AnyExtInt
@@ -91,3 +92,44 @@ where
 //}
 //}
 //}
+pub trait AnyExtInt
+where
+    Self: Sealed,
+    Self: From<SpecificExtInt<Self>>,
+    Self: Into<SpecificExtInt<Self>>,
+    Self: AsRef<SpecificExtInt<Self>>,
+    Self: AsMut<SpecificExtInt<Self>>,
+{
+    /// TODO
+    type Num: EINum;
+    /// TODO
+    type Pin: InterruptConfig;
+    /// TODO
+    type Filteringtype: Filtering;
+    //type Mode: DetectionMode;
+    /// TODO
+    type Debouncingtype: Debouncing;
+    /// TODO
+    type SenseModetype: SenseMode;
+}
+
+pub type SpecificExtInt<E> = ExtInt<
+    <E as AnyExtInt>::Num,
+    <E as AnyExtInt>::Pin,
+    <E as AnyExtInt>::Filtering,
+    <E as AnyExtInt>::Debouncing,
+    <E as AnyExtInt>::SenseMode,
+>;
+
+impl<E: AnyExtInt> From<E> for SyncExtInt<E> {
+    #[inline]
+    fn from(&self) -> Self {
+        SyncExtInt {
+            regs: Registers::<self::Num>,
+            pin: self::Pin,
+            filtering: self::Filteringtype,
+            debouncing: self::Debouncing,
+            sensemode: self::SenseMode,
+        }
+    }
+}

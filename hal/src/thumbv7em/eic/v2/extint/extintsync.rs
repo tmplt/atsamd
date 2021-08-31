@@ -27,7 +27,7 @@ where
     C: InterruptConfig,
 {
     /// TODO
-    pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the SyncExtInt (e.g. set the Asynchronous Mode register)
         SyncExtInt {
             regs: token.regs,
@@ -45,7 +45,6 @@ where
     C: InterruptConfig,
     S: SenseMode,
 {
-
     // Methods related to filtering and debouncing go here,
     // since they require a clock
 
