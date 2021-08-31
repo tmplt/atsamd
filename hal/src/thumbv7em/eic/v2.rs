@@ -2,15 +2,17 @@ use core::marker::PhantomData;
 
 use seq_macro::seq;
 
-use typenum::U0;
-
-use crate::clock::types::{Counter, Decrement, Enabled, Increment};
+use crate::clock::types::{Counter, Enabled};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
 use crate::gpio::v2::{self as gpio, Interrupt, InterruptConfig, Pin, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
 use crate::typelevel::Sealed;
+
+pub mod eicontroller;
+
+use crate::eic::v2::eicontroller::*;
 
 //==============================================================================
 // Sense
@@ -29,9 +31,63 @@ pub enum Sense {
     Low,
 }
 
+/// TODO
+pub trait SenseMode: Sealed {
+    const SENSE: Sense;
+}
+
+pub struct SenseNone {}
+impl Sealed for SenseNone {}
+impl SenseMode for SenseNone {
+    const SENSE: Sense = Sense::None;
+}
+
+pub struct SenseRise {}
+impl Sealed for SenseRise {}
+impl SenseMode for SenseRise {
+    const SENSE: Sense = Sense::Rise;
+}
+
+pub struct SenseFall {}
+impl Sealed for SenseFall {}
+impl SenseMode for SenseFall {
+    const SENSE: Sense = Sense::Fall;
+}
+
+pub struct SenseBoth {}
+impl Sealed for SenseBoth {}
+impl SenseMode for SenseBoth {
+    const SENSE: Sense = Sense::Both;
+}
+
+pub struct SenseHigh {}
+impl Sealed for SenseHigh {}
+impl SenseMode for SenseHigh {
+    const SENSE: Sense = Sense::High;
+}
+
+pub struct SenseLow {}
+impl Sealed for SenseLow {}
+impl SenseMode for SenseLow {
+    const SENSE: Sense = Sense::Low;
+}
+
 //==============================================================================
 // Debouncer
 //==============================================================================
+
+/// TODO
+pub trait Debouncing: Sealed {}
+
+/// Debouncing is enabled
+pub struct DebouncingEnabled {}
+impl Sealed for DebouncingEnabled {}
+impl Debouncing for DebouncingEnabled {}
+
+/// Debouncing is disabled
+pub struct DebouncingDisabled;
+impl Sealed for DebouncingDisabled {}
+impl Debouncing for DebouncingDisabled {}
 
 pub struct DebouncerSettings {
     pub tickon: TICKON_A,
@@ -40,6 +96,23 @@ pub struct DebouncerSettings {
     pub prescaler1: PRESCALER1_A,
     pub states1: STATES1_A,
 }
+
+//==============================================================================
+// Filtering
+//==============================================================================
+
+/// TODO
+pub trait Filtering: Sealed {}
+
+/// Filtering is enabled
+pub struct FilteringEnabled {}
+impl Sealed for FilteringEnabled {}
+impl Filtering for FilteringEnabled {}
+
+/// Filtering is disabled
+pub struct FilteringDisabled;
+impl Sealed for FilteringDisabled {}
+impl Filtering for FilteringDisabled {}
 
 //==============================================================================
 // EINum
@@ -54,6 +127,9 @@ pub trait EINum: Sealed {
     // Filten described by arithmetic series
     // 7+(n-1)*4
     const FILTEN: u32 = 1 << (7 + (Self::NUM - 1) * 4);
+    // Sense described by the arithmetic series
+    // 2+(n-1)*4
+    const SENSE: u32 = 111 << (2 + (Self::NUM - 1) * 4);
     // Possibly other constants
 }
 
@@ -221,23 +297,55 @@ impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, M>
+pub struct ExtInt<I, C, M, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
     M: DetectionMode,
+    F: Filtering,
+    B: Debouncing,
+    S: SenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
     #[allow(dead_code)]
     mode: M,
+    filtering: PhantomData<F>,
+    debouncing: PhantomData<B>,
+    sensemode: PhantomData<S>,
 }
-
-impl<I, C> ExtInt<I, C, AsyncMode>
+impl<I, C, M, F, B, S> ExtInt<I, C, M, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    M: DetectionMode,
+    F: Filtering,
+    B: Debouncing,
+    S: SenseMode,
+{
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
+    /// TODO
+    pub fn pin_state(&self) -> bool {
+        self.regs.pin_state()
+    }
+}
+impl<I, C, M, F, S> ExtInt<I, C, M, F, DebouncingDisabled, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    M: DetectionMode,
+    F: Filtering,
+    S: SenseMode,
+{
+}
+
+impl<I, C, S> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    S: SenseMode,
 {
     /// TODO
     pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
@@ -246,20 +354,28 @@ where
             regs: token.regs,
             pin,
             mode: AsyncMode,
+            filtering: PhantomData,
+            debouncing: PhantomData,
+            sensemode: PhantomData,
         }
     }
-
-    // Do not need access to the EIController here
     /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.regs.pin_state()
+    pub fn set_sense<K, N>(
+        &self,
+        eic: &mut Enabled<EIController<NoClockOnlyAsync>, N>,
+        sense: Sense,
+    ) where
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(sense);
     }
 }
 
-impl<I, C> ExtInt<I, C, SyncMode>
+impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    S: SenseMode,
 {
     /// TODO
     pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
@@ -268,13 +384,10 @@ where
             regs: token.regs,
             pin,
             mode: SyncMode,
+            filtering: PhantomData,
+            debouncing: PhantomData,
+            sensemode: PhantomData,
         }
-    }
-
-    // Do not need access to the EIController here
-    /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.regs.pin_state()
     }
 
     // Methods related to filtering and debouncing go here,
@@ -282,7 +395,19 @@ where
 
     // Must have access to the EIController here
     /// TODO
-    pub fn enable_debouncer<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
+    pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<WithClock<K>>, N>, sense: Sense)
+    where
+        K: EIClkSrc,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(sense);
+    }
+
+    /// TODO
+    pub fn enable_debouncer<K, N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<K>>, N>,
+    ) -> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingEnabled, S>
     where
         K: EIClkSrc,
         N: Counter,
@@ -290,11 +415,22 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncer::<I::EINum>();
+        ExtInt {
+            regs: self.regs,
+            pin: self.pin,
+            mode: self.mode,
+            filtering: self.filtering,
+            debouncing: PhantomData::<DebouncingEnabled>,
+            sensemode: self.sensemode,
+        }
     }
 
     // Must have access to the EIController here
     /// TODO
-    pub fn enable_filtering<K, N>(&mut self, eic: &mut Enabled<EIController<WithClock<K>>, N>)
+    pub fn enable_filtering<K, N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<K>>, N>,
+    ) -> ExtInt<I, C, SyncMode, FilteringEnabled, DebouncingDisabled, S>
     where
         K: EIClkSrc,
         N: Counter,
@@ -302,6 +438,14 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_filtering::<I::EINum>();
+        ExtInt {
+            regs: self.regs,
+            pin: self.pin,
+            mode: self.mode,
+            filtering: PhantomData::<FilteringEnabled>,
+            debouncing: self.debouncing,
+            sensemode: self.sensemode,
+        }
     }
 }
 
@@ -340,229 +484,6 @@ where
 //}
 //}
 
-//==============================================================================
-// EIController
-//==============================================================================
-
-// Struct to represent the external interrupt controller
-// You need exclusive access to this to set registers that
-// share multiple pins, like the Sense configuration register
-/// TODO
-pub struct EIController<M: ClockMode>
-where
-    M: ClockMode,
-{
-    eic: crate::pac::EIC,
-    #[allow(dead_code)]
-    mode: M,
-}
-
-impl<K> EIController<WithClock<K>>
-where
-    K: EIClkSrc + Increment,
-{
-    /// Create an EIC Controller with a clock source
-    ///
-    /// This allows for full EIC functionality
-    ///
-    /// Safety
-    ///
-    /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc) {
-        // Software reset the EIC controller on creation
-        eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        while eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
-        }
-
-        // Set CKSEL to match the clock resource provided
-        eic.ctrla.modify(|_, w| w.cksel().variant(K::CKSEL));
-
-        unsafe {
-            (
-                Enabled::new(Self {
-                    eic,
-                    mode: WithClock { clock: PhantomData },
-                }),
-                Tokens::new(),
-                clock.inc(),
-            )
-        }
-    }
-}
-
-impl EIController<NoClockOnlyAsync> {
-    /// Create an EIC Controller without a clock source
-    ///
-    /// This limits the EIC functionality
-    ///
-    /// Safety
-    ///
-    /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<Self, U0>, Tokens) {
-        // Software reset the EIC controller on creation
-        eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        while eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
-        }
-
-        // Setup mode to async for all channels
-        eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
-
-        // Does not use or need any external clock, `CKSEL` is ignored
-
-        unsafe {
-            (
-                Enabled::new(Self {
-                    eic,
-                    mode: NoClockOnlyAsync {},
-                }),
-                Tokens::new(),
-            )
-        }
-    }
-}
-
-impl<M> Enabled<EIController<M>, U0>
-where
-    M: ClockMode,
-{
-    /// Software reset needs to be synchronised
-    fn syncbusy_swrst(&self) {
-        while self.0.eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
-        }
-    }
-}
-
-impl<M, N> Enabled<EIController<M>, N>
-where
-    M: ClockMode,
-    N: Counter,
-{
-    /// Enabling the EIC controller needs to be synchronised
-    fn syncbusy_finalize(&self) {
-        while self.0.eic.syncbusy.read().enable().bit_is_set() {
-            cortex_m::asm::nop();
-        }
-    }
-    /// Start EIC controller by writing the enable bit
-    pub fn finalize(&self) {
-        self.0.eic.ctrla.modify(|_, w| w.enable().set_bit());
-        self.syncbusy_finalize();
-    }
-}
-
-impl<K> Enabled<EIController<WithClock<K>>, U0>
-where
-    K: EIClkSrc + Decrement,
-{
-    /// Disable and destroy the EIC controller
-    pub fn destroy<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
-    where
-        S: EIClkSrc + Decrement,
-    {
-        (self.0.eic, clock.dec())
-    }
-
-    /// Softare reset the EIC controller
-    pub fn swrst(&self) {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        self.syncbusy_swrst();
-
-        // Set CKSEL to match the clock resource provided
-        self.0.eic.ctrla.modify(|_, w| w.cksel().variant(K::CKSEL));
-    }
-}
-
-impl Enabled<EIController<NoClockOnlyAsync>, U0> {
-    /// Disable and destroy the EIC controller
-    pub fn destroy(self, _tokens: Tokens) -> crate::pac::EIC {
-        self.0.eic
-    }
-
-    /// Softare reset the EIC controller
-    pub fn swrst(&self) {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        self.syncbusy_swrst();
-
-        // Setup mode to async for all channels
-        self.0.eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
-    }
-}
-
-impl<K, N> Enabled<EIController<WithClock<K>>, N>
-where
-    K: EIClkSrc,
-    N: Counter,
-{
-    /// TODO
-    pub fn new_sync<I, C>(
-        token: Token<I::EINum>,
-        pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, SyncMode>
-    where
-        I: GetEINum,
-        C: InterruptConfig,
-    {
-        ExtInt::new_sync(token, pin)
-    }
-
-    // Private function that should be accessed through the ExtInt
-    // Could pass the MASK directly instead of making this function
-    // generic over the EINum. Either way is fine.
-    /// TODO
-    fn enable_debouncer<E: EINum>(&mut self) {
-        self.0.eic.debouncen.modify(|r, w| unsafe {
-            let bits = r.debouncen().bits();
-            w.debouncen().bits(bits | E::MASK)
-        });
-    }
-
-    fn set_debouncer_settings<E: EINum>(&mut self, settings: &DebouncerSettings) {
-        self.0.eic.dprescaler.write({
-            |w| {
-                w.tickon()
-                    .variant(settings.tickon)
-                    .prescaler0()
-                    .variant(settings.prescaler0)
-                    .states0()
-                    .variant(settings.states0)
-                    .prescaler1()
-                    .variant(settings.prescaler1)
-                    .states1()
-                    .variant(settings.states1)
-            }
-        });
-    }
-
-    // Private function that should be accessed through the ExtInt
-    /// TODO
-    fn enable_filtering<E: EINum>(&mut self) {
-        let index = match E::NUM {
-            0..=7 => 0,
-            _ => 1,
-        };
-        self.0.eic.config[index].write(|w| unsafe { w.bits(E::FILTEN) });
-    }
-}
-
-impl<N> Enabled<EIController<NoClockOnlyAsync>, N>
-where
-    N: Counter,
-{
-    /// TODO
-    pub fn new_async<I, C>(
-        token: Token<I::EINum>,
-        pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, AsyncMode>
-    where
-        I: GetEINum,
-        C: InterruptConfig,
-    {
-        ExtInt::new_async(token, pin)
-    }
-}
 
 //==============================================================================
 // GetEINum
