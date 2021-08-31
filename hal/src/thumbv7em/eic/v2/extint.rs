@@ -165,6 +165,27 @@ where
     }
 }
 
+impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingEnabled, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    S: SenseMode,
+{
+    /// TODO
+    pub fn set_debouncer_settings<K, N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<K>>, N>,
+        settings: &DebouncerSettings,
+    ) where
+        K: EIClkSrc,
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.set_debouncer_settings::<I::EINum>(settings);
+    }
+}
+
 //==============================================================================
 // AnyExtInt
 //==============================================================================
