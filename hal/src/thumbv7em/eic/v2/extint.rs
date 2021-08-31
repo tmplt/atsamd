@@ -57,11 +57,10 @@ where
 {
 }
 
-impl<I, C, S> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseMode,
 {
     /// TODO
     pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
@@ -75,6 +74,14 @@ where
             sensemode: PhantomData,
         }
     }
+}
+
+impl<I, C, S> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    S: SenseMode,
+{
     /// TODO
     pub fn set_sense<K, N>(
         &self,
@@ -86,12 +93,10 @@ where
         eic.set_sense_mode::<I::EINum>(sense);
     }
 }
-
-impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseMode,
 {
     /// TODO
     pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
@@ -105,6 +110,14 @@ where
             sensemode: PhantomData,
         }
     }
+}
+
+impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    S: SenseMode,
+{
 
     // Methods related to filtering and debouncing go here,
     // since they require a clock

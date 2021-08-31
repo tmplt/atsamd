@@ -13,8 +13,8 @@ use crate::typelevel::Sealed;
 pub mod eicontroller;
 pub mod extint;
 
-use crate::eic::v2::eicontroller::*;
-use crate::eic::v2::extint::*;
+pub use crate::eic::v2::eicontroller::*;
+pub use crate::eic::v2::extint::*;
 
 //==============================================================================
 // Sense
@@ -38,36 +38,42 @@ pub trait SenseMode: Sealed {
     const SENSE: Sense;
 }
 
+/// TODO
 pub struct SenseNone {}
 impl Sealed for SenseNone {}
 impl SenseMode for SenseNone {
     const SENSE: Sense = Sense::None;
 }
 
+/// TODO
 pub struct SenseRise {}
 impl Sealed for SenseRise {}
 impl SenseMode for SenseRise {
     const SENSE: Sense = Sense::Rise;
 }
 
+/// TODO
 pub struct SenseFall {}
 impl Sealed for SenseFall {}
 impl SenseMode for SenseFall {
     const SENSE: Sense = Sense::Fall;
 }
 
+/// TODO
 pub struct SenseBoth {}
 impl Sealed for SenseBoth {}
 impl SenseMode for SenseBoth {
     const SENSE: Sense = Sense::Both;
 }
 
+/// TODO
 pub struct SenseHigh {}
 impl Sealed for SenseHigh {}
 impl SenseMode for SenseHigh {
     const SENSE: Sense = Sense::High;
 }
 
+/// TODO
 pub struct SenseLow {}
 impl Sealed for SenseLow {}
 impl SenseMode for SenseLow {
@@ -91,6 +97,7 @@ pub struct DebouncingDisabled;
 impl Sealed for DebouncingDisabled {}
 impl Debouncing for DebouncingDisabled {}
 
+/// TODO
 pub struct DebouncerSettings {
     pub tickon: TICKON_A,
     pub prescaler0: PRESCALER0_A,
