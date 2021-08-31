@@ -175,12 +175,12 @@ where
     pub fn new_sync<I, C>(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
     {
-        ExtInt::new_sync(token, pin)
+        SyncExtInt::new_sync(token, pin)
     }
 
     // Private function that should be accessed through the ExtInt
@@ -230,11 +230,11 @@ where
     pub fn new_async<I, C>(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
     {
-        ExtInt::new_async(token, pin)
+        AsyncExtInt::new_async(token, pin)
     }
 }

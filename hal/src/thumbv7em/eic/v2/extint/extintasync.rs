@@ -5,18 +5,34 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
-impl<I, C> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
+pub struct AsyncExtInt<I, C, F, B, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    F: Filtering,
+    B: Debouncing,
+    S: SenseMode,
+{
+    #[allow(dead_code)]
+    regs: Registers<I::EINum>,
+    #[allow(dead_code)]
+    pin: Pin<I, Interrupt<C>>,
+    filtering: PhantomData<F>,
+    debouncing: PhantomData<B>,
+    sensemode: PhantomData<S>,
+}
+
+impl<I, C> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
 {
     /// TODO
     pub fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
-        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
-        ExtInt {
+        // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
+        AsyncExtInt {
             regs: token.regs,
             pin,
-            mode: AsyncMode,
             filtering: PhantomData,
             debouncing: PhantomData,
             sensemode: PhantomData,
@@ -24,7 +40,7 @@ where
     }
 }
 
-impl<I, C, S> ExtInt<I, C, AsyncMode, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C, S> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,

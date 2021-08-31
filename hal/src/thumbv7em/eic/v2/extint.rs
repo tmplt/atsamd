@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 
-use crate::clock::types::{Counter, Enabled};
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
@@ -16,11 +15,10 @@ pub mod extintasync;
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, M, F, B, S>
+pub struct ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    M: DetectionMode,
     F: Filtering,
     B: Debouncing,
     S: SenseMode,
@@ -28,18 +26,16 @@ where
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
-    #[allow(dead_code)]
-    mode: M,
     filtering: PhantomData<F>,
     debouncing: PhantomData<B>,
     sensemode: PhantomData<S>,
 }
 
-impl<I, C, M, F, B, S> ExtInt<I, C, M, F, B, S>
+
+impl<I, C, F, B, S> ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    M: DetectionMode,
     F: Filtering,
     B: Debouncing,
     S: SenseMode,
@@ -51,11 +47,10 @@ where
         self.regs.pin_state()
     }
 }
-impl<I, C, M, F, S> ExtInt<I, C, M, F, DebouncingDisabled, S>
+impl<I, C, F, S> ExtInt<I, C, F, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    M: DetectionMode,
     F: Filtering,
     S: SenseMode,
 {

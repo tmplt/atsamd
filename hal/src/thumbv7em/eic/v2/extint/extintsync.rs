@@ -5,18 +5,33 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
-impl<I, C> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, SenseNone>
+pub struct SyncExtInt<I, C, F, B, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    F: Filtering,
+    B: Debouncing,
+    S: SenseMode,
+{
+    regs: Registers<I::EINum>,
+    #[allow(dead_code)]
+    pin: Pin<I, Interrupt<C>>,
+    filtering: PhantomData<F>,
+    debouncing: PhantomData<B>,
+    sensemode: PhantomData<S>,
+}
+
+impl<I, C> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
 {
     /// TODO
     pub fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
-        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
-        ExtInt {
+        // Configure the SyncExtInt (e.g. set the Asynchronous Mode register)
+        SyncExtInt {
             regs: token.regs,
             pin,
-            mode: SyncMode,
             filtering: PhantomData,
             debouncing: PhantomData,
             sensemode: PhantomData,
@@ -24,7 +39,7 @@ where
     }
 }
 
-impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -48,7 +63,7 @@ where
     pub fn enable_debouncer<K, N>(
         self,
         eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingEnabled, S>
+    ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingEnabled, S>
     where
         K: EIClkSrc,
         N: Counter,
@@ -56,10 +71,9 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncer::<I::EINum>();
-        ExtInt {
+        SyncExtInt {
             regs: self.regs,
             pin: self.pin,
-            mode: self.mode,
             filtering: self.filtering,
             debouncing: PhantomData::<DebouncingEnabled>,
             sensemode: self.sensemode,
@@ -71,7 +85,7 @@ where
     pub fn enable_filtering<K, N>(
         self,
         eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> ExtInt<I, C, SyncMode, FilteringEnabled, DebouncingDisabled, S>
+    ) -> SyncExtInt<I, C, FilteringEnabled, DebouncingDisabled, S>
     where
         K: EIClkSrc,
         N: Counter,
@@ -79,10 +93,9 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_filtering::<I::EINum>();
-        ExtInt {
+        SyncExtInt {
             regs: self.regs,
             pin: self.pin,
-            mode: self.mode,
             filtering: PhantomData::<FilteringEnabled>,
             debouncing: self.debouncing,
             sensemode: self.sensemode,
@@ -90,7 +103,7 @@ where
     }
 }
 
-impl<I, C, S> ExtInt<I, C, SyncMode, FilteringDisabled, DebouncingEnabled, S>
+impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingEnabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,

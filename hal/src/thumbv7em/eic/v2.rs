@@ -14,7 +14,7 @@ pub mod eicontroller;
 pub mod extint;
 
 pub use crate::eic::v2::eicontroller::*;
-pub use crate::eic::v2::extint::*;
+pub use crate::eic::v2::extint::{extintasync::*, extintsync::*};
 
 //==============================================================================
 // Sense
@@ -297,8 +297,6 @@ impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
     /// TODO
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
-
-
 
 //==============================================================================
 // GetEINum
