@@ -9,9 +9,9 @@ pub struct SyncExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: Filtering,
-    B: Debouncing,
-    S: SenseMode,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
@@ -43,7 +43,7 @@ impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseMode,
+    S: SenseModeT,
 {
     // Methods related to filtering and debouncing go here,
     // since they require a clock
@@ -106,7 +106,7 @@ impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingEnabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseMode,
+    S: SenseModeT,
 {
     /// TODO
     pub fn set_debouncer_settings<K, N>(

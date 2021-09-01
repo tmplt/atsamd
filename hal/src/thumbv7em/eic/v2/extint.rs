@@ -22,9 +22,9 @@ pub struct ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: Filtering,
-    B: Debouncing,
-    S: SenseMode,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
@@ -38,9 +38,9 @@ impl<I, C, F, B, S> ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: Filtering,
-    B: Debouncing,
-    S: SenseMode,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
 {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
@@ -53,8 +53,8 @@ impl<I, C, F, S> ExtInt<I, C, F, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: Filtering,
-    S: SenseMode,
+    F: FilteringT,
+    S: SenseModeT,
 {
 }
 
@@ -92,6 +92,7 @@ where
 //}
 //}
 //}
+/*
 pub trait AnyExtInt
 where
     Self: Sealed,
@@ -105,12 +106,12 @@ where
     /// TODO
     type Pin: InterruptConfig;
     /// TODO
-    type Filteringtype: Filtering;
+    type Filtering: FilteringT;
     //type Mode: DetectionMode;
     /// TODO
-    type Debouncingtype: Debouncing;
+    type Debouncing: DebouncingT;
     /// TODO
-    type SenseModetype: SenseMode;
+    type SenseMode: SenseModeT;
 }
 
 pub type SpecificExtInt<E> = ExtInt<
@@ -121,15 +122,18 @@ pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::SenseMode,
 >;
 
-impl<E: AnyExtInt> From<E> for SyncExtInt<E> {
+impl<E: AnyExtInt> From<E> for SpecificExtInt<E>
+{
     #[inline]
     fn from(&self) -> Self {
-        SyncExtInt {
+        SpecificExtInt {
             regs: Registers::<self::Num>,
             pin: self::Pin,
-            filtering: self::Filteringtype,
+            filtering: self::Filtering,
             debouncing: self::Debouncing,
             sensemode: self::SenseMode,
         }
     }
 }
+
+*/

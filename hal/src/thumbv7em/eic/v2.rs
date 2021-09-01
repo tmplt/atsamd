@@ -85,17 +85,17 @@ impl SenseModeT for SenseLow {
 //==============================================================================
 
 /// TODO
-pub trait DebonucingT: Sealed {}
+pub trait DebouncingT: Sealed {}
 
 /// Debouncing is enabled
 pub struct DebouncingEnabled {}
 impl Sealed for DebouncingEnabled {}
-impl Debouncing for DebouncingEnabled {}
+impl DebouncingT for DebouncingEnabled {}
 
 /// Debouncing is disabled
 pub struct DebouncingDisabled;
 impl Sealed for DebouncingDisabled {}
-impl Debouncing for DebouncingDisabled {}
+impl DebouncingT for DebouncingDisabled {}
 
 /// TODO
 pub struct DebouncerSettings {
@@ -260,24 +260,6 @@ pub struct WithClock<C: EIClkSrc> {
 }
 impl<C: EIClkSrc> Sealed for WithClock<C> {}
 impl<C: EIClkSrc> ClockMode for WithClock<C> {}
-
-//==============================================================================
-// DetectionMode
-//==============================================================================
-
-// Synchronous vs. asynchronous detection
-/// TODO
-pub trait DetectionMode: Sealed {}
-
-/// TODO
-pub struct AsyncMode;
-impl Sealed for AsyncMode {}
-impl DetectionMode for AsyncMode {}
-
-/// TODO
-pub struct SyncMode;
-impl Sealed for SyncMode {}
-impl DetectionMode for SyncMode {}
 
 // EI clock source for synchronous detection modes
 // TODO should this need Sealed?

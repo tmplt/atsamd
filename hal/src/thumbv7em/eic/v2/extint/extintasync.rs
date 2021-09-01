@@ -9,9 +9,9 @@ pub struct AsyncExtInt<I, C, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: Filtering,
-    B: Debouncing,
-    S: SenseMode,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
 {
     #[allow(dead_code)]
     regs: Registers<I::EINum>,
@@ -44,7 +44,7 @@ impl<I, C, S> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseMode,
+    S: SenseModeT,
 {
     /// TODO
     pub fn set_sense<K, N>(
