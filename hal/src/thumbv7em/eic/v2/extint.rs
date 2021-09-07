@@ -84,7 +84,7 @@ where
     Self: AsMut<SpecificExtInt<Self>>,
 {
     /// Associated type representing the ExtInt number [`EINum`]
-    type Num: GetEINum;
+    type Num: EINum + GetEINum;
     /// TODO
     type Pin: InterruptConfig;
     /// TODO

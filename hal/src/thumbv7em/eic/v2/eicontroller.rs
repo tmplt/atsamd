@@ -7,6 +7,8 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
+use super::extint::AnyExtInt;
+
 //==============================================================================
 // EIController
 //==============================================================================
@@ -172,14 +174,11 @@ where
     N: Counter,
 {
     /// TODO
-    pub fn new_sync<I, C>(
+    pub fn new_sync<E>(
         &self,
-        token: Token<I::EINum>,
-        pin: Pin<I, Interrupt<C>>,
-    ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
-    where
-        I: GetEINum,
-        C: InterruptConfig,
+        token: Token<<E as AnyExtInt>::Num>,
+        pin: <E as AnyExtInt>::Pin,
+    ) -> ExtInt
     {
         SyncExtInt::new_sync(token, pin)
     }
