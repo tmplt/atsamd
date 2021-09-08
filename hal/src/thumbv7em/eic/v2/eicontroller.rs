@@ -174,11 +174,14 @@ where
     N: Counter,
 {
     /// TODO
-    pub fn new_sync<E>(
+    pub fn new_sync<I, C>(
         &self,
-        token: Token<<E as AnyExtInt>::Num>,
-        pin: <E as AnyExtInt>::Pin,
-    ) -> ExtInt
+        token: Token<I::EINum>,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
+    where
+        I: GetEINum,
+        C: InterruptConfig,
     {
         SyncExtInt::new_sync(token, pin)
     }

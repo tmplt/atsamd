@@ -5,13 +5,33 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
-use super::AnyExtInt;
+//use super::AnyExtInt;
 
-pub trait SyncExtInt {
+pub struct SyncExtInt<I, C, F, B, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
+{
+    regs: Registers<I::EINum>,
+    #[allow(dead_code)]
+    pin: Pin<I, Interrupt<C>>,
+    filtering: PhantomData<F>,
+    debouncing: PhantomData<B>,
+    sensemode: PhantomData<S>,
+}
+
+impl<I, C> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+{
     /// TODO
-    fn new_sync<I, C>(token: Token<I::GetEINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the SyncExtInt (e.g. set the Asynchronous Mode register)
-        ExtInt {
+        SyncExtInt {
             regs: token.regs,
             pin,
             filtering: PhantomData,
@@ -21,13 +41,28 @@ pub trait SyncExtInt {
     }
 }
 
+/*
+pub trait SyncExtInt {
+    /// TODO
+    fn new_sync<I, C>(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+        // Configure the SyncExtInt (e.g. set the Asynchronous Mode register)
+        SyncExtInt {
+            regs: token.regs,
+            pin,
+            filtering: PhantomData,
+            debouncing: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+}
+*/
+
 //impl<E> SyncExtInt
 //where
 //E: AnyExtInt<Filtering = FilteringDisabled, Debouncing = DebouncingDisabled, SenseMode = SenseNone>,
 //{
 //}
 
-/*
 impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
@@ -111,4 +146,4 @@ where
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
 }
-*/
+

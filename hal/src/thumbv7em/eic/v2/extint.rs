@@ -2,6 +2,8 @@ use core::marker::PhantomData;
 
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
+use crate::typelevel::{Is, NoneT, Sealed};
+
 use crate::eic::v2::*;
 
 use core::mem::transmute;
@@ -46,6 +48,7 @@ where
 {
 }
 
+/*
 impl<I, C, F, B, S> ExtInt<I, C, F, B, S>
 where
     I: GetEINum,
@@ -61,6 +64,7 @@ where
         self.regs.pin_state()
     }
 }
+
 impl<I, C, F, S> ExtInt<I, C, F, DebouncingDisabled, S>
 where
     I: GetEINum,
@@ -69,13 +73,33 @@ where
     S: SenseModeT,
 {
 }
+*/
+
+pub trait ExtIntT: AnyExtInt {
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
+    /// TODO
+    fn pin_state(&self) -> bool;
+}
+
+
+/*
+impl<I, C, F, B, S> ExtIntT for SyncExtInt<I, C, F, B, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    F: FilteringT,
+    B: DebouncingT,
+    S: SenseModeT,
+{}
+*/
 
 //==============================================================================
 // AnyExtInt
 //==============================================================================
 
 // It probably makes sense to implement the `AnyKind` pattern for ExtInt
-pub trait AnyExtInt
+pub trait AnyExtInt: Is<Type = SpecificExtInt<Self>>
 where
     Self: Sealed,
     Self: From<SpecificExtInt<Self>>,
