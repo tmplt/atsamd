@@ -22,10 +22,11 @@ pub use extintsync::*;
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, F, B, S>
+pub struct ExtInt<I, C, M, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    M: ClockMode,
     F: FilteringT,
     B: DebouncingT,
     S: SenseModeT,
@@ -38,10 +39,11 @@ where
     sensemode: PhantomData<S>,
 }
 
-impl<I, C, F, B, S> Sealed for ExtInt<I, C, F, B, S>
+impl<I, C, M, F, B, S> Sealed for ExtInt<I, C, M, F, B, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    M: ClockMode,
     F: FilteringT,
     B: DebouncingT,
     S: SenseModeT,
@@ -75,14 +77,6 @@ where
 }
 */
 
-pub trait ExtIntT {
-    //pub trait ExtIntT: AnyExtInt {
-    // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
-    /// TODO
-    fn pin_state(&self) -> bool;
-}
-
 /*
 impl<I, C, F, B, S> ExtIntT for SyncExtInt<I, C, F, B, S>
 where
@@ -94,38 +88,6 @@ where
 {}
 */
 
-struct AnyExtIntStruct<E>
-where
-    E: AnyExtInt,
-{
-    extint: E,
-}
-
-impl<E> ExtIntT for AnyExtIntStruct<E>
-where
-    E: AnyExtInt,
-{
-    // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
-    /// TODO
-    fn pin_state(&self) -> bool {
-        //self.regs.regs.pin_state()
-        self.extint
-    }
-}
-
-impl<E> ExtIntT for SyncExtInt<E>
-where
-    E: AnyExtInt,
-{
-    // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
-    /// TODO
-    fn pin_state(&self) -> bool {
-        //self.regs.regs.pin_state()
-        self.extint
-    }
-}
 
 //==============================================================================
 // AnyExtInt
@@ -145,6 +107,8 @@ where
     /// TODO
     type Pin: InterruptConfig;
     /// TODO
+    type Mode: ClockMode;
+    /// TODO
     type Filtering: FilteringT;
     //type Mode: DetectionMode;
     /// TODO
@@ -153,10 +117,11 @@ where
     type SenseMode: SenseModeT;
 }
 
-impl<I, C, F, B, S> AnyExtInt for ExtInt<I, C, F, B, S>
+impl<I, C, M, F, B, S> AnyExtInt for ExtInt<I, C, M, F, B, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
+    M: ClockMode,
     F: FilteringT,
     B: DebouncingT,
     S: SenseModeT,
@@ -165,6 +130,8 @@ where
     type Num = I;
     /// TODO
     type Pin = C;
+    /// TODO
+    type Mode = M;
     /// TODO
     type Filtering = F;
     /// TODO
@@ -175,6 +142,7 @@ where
 pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
     <E as AnyExtInt>::Pin,
+    <E as AnyExtInt>::Mode,
     <E as AnyExtInt>::Filtering,
     <E as AnyExtInt>::Debouncing,
     <E as AnyExtInt>::SenseMode,
