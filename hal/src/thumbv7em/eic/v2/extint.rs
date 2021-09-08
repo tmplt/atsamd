@@ -75,13 +75,13 @@ where
 }
 */
 
-pub trait ExtIntT: AnyExtInt {
+pub trait ExtIntT {
+    //pub trait ExtIntT: AnyExtInt {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
     /// TODO
     fn pin_state(&self) -> bool;
 }
-
 
 /*
 impl<I, C, F, B, S> ExtIntT for SyncExtInt<I, C, F, B, S>
@@ -93,6 +93,39 @@ where
     S: SenseModeT,
 {}
 */
+
+struct AnyExtIntStruct<E>
+where
+    E: AnyExtInt,
+{
+    extint: E,
+}
+
+impl<E> ExtIntT for AnyExtIntStruct<E>
+where
+    E: AnyExtInt,
+{
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
+    /// TODO
+    fn pin_state(&self) -> bool {
+        //self.regs.regs.pin_state()
+        self.extint
+    }
+}
+
+impl<E> ExtIntT for SyncExtInt<E>
+where
+    E: AnyExtInt,
+{
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
+    /// TODO
+    fn pin_state(&self) -> bool {
+        //self.regs.regs.pin_state()
+        self.extint
+    }
+}
 
 //==============================================================================
 // AnyExtInt
