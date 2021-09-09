@@ -388,7 +388,7 @@ use seq_macro::seq;
 use bitflags::bitflags;
 
 use crate::pac::icm::*;
-use crate::typelevel::Sealed;
+use crate::typelevel::{Is, Sealed};
 use core::marker::PhantomData;
 
 /// Reexport the User SHA Algorithm
@@ -875,16 +875,112 @@ impl<I: RegionNum> Region<I> {
     }
 }
 
+pub trait Status: Sealed {}
+
+pub enum Enabled {}
+impl Status for Enabled {}
+impl Sealed for Enabled {}
+impl AnyStatus for Enabled {
+    type Status = Enabled;
+}
+
+pub enum Disabled {}
+impl Status for Disabled {}
+impl Sealed for Disabled {}
+impl AnyStatus for Disabled {
+    type Status = Disabled;
+}
+
+pub trait AnyStatus: Is<Type = SpecificStatus<Self>> {
+    type Status: Status;
+}
+
+type SpecificStatus<S> = <S as AnyStatus>::Status;
+
+impl AsMut<Self> for Enabled {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+impl AsMut<Self> for Disabled {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl AsRef<Self> for Enabled {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+impl AsRef<Self> for Disabled {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
 /// ICM Peripheral
 ///
 /// Encapsulates the PAC which acts as a token
 /// and provides an interface to the ICM hardware
-pub struct Icm {
+pub struct Icm<S: AnyStatus> {
     /// ICM pac register providing hardware access
     icm: crate::pac::ICM,
+    status: PhantomData<S>,
 }
 
-impl Icm {
+impl<S> Icm<S>
+where
+    S: AnyStatus<Status = Disabled>,
+{
+    /// Enable the ICM peripheral
+    #[inline]
+    pub fn enable(self) -> Icm<Enabled> {
+        self.ctrl().write(|w| w.enable().set_bit());
+        Icm {
+            icm: self.icm,
+            status: PhantomData,
+        }
+    }
+
+    /// Reset the ICM controller
+    ///
+    /// Does not seem to clear DSCR, HASH addr
+    ///
+    /// The only way to clear the `URAD` and `URAT` fields
+    /// is by resetting the ICM controller
+    #[inline]
+    pub fn swrst(&mut self) {
+        self.ctrl().write(|w| w.swrst().set_bit());
+    }
+
+    /// Destroy the ICM peripheral and return the underlying ICM register
+    #[inline]
+    pub fn destroy(self) -> crate::pac::ICM {
+        self.icm
+    }
+}
+
+impl<S> Icm<S>
+where
+    S: AnyStatus<Status = Enabled>,
+{
+    /// Disable the ICM peripheral
+    #[inline]
+    pub fn disable(self) -> Icm<Disabled> {
+        self.ctrl().write(|w| w.disable().set_bit());
+        Icm {
+            icm: self.icm,
+            status: PhantomData,
+        }
+    }
+}
+
+impl<S: AnyStatus> Icm<S> {
     /// Create the interface for the ICM peripheral
     ///
     /// Don't forget to enable the `APB` bus for ICM
@@ -897,8 +993,11 @@ impl Icm {
     /// Clock::v2
     /// `tokens.apbs.icm.enable();`
     #[inline]
-    pub fn new(icm: crate::pac::ICM) -> Self {
-        Self { icm }
+    pub fn new(icm: crate::pac::ICM) -> Icm<Disabled> {
+        Icm {
+            icm,
+            status: PhantomData,
+        }
     }
 
     // Register Interface
@@ -971,39 +1070,10 @@ impl Icm {
 
     // User interface for ICM
 
-    /// Enable the ICM peripheral
-    #[inline]
-    pub fn enable(&mut self) {
-        self.ctrl().write(|w| w.enable().set_bit());
-    }
-
     /// Get enabled status of the ICM peripheral
     #[inline]
     pub fn icm_status(&self) -> bool {
         self.sr().read().enable().bit_is_set()
-    }
-
-    /// Disable the ICM peripheral
-    #[inline]
-    pub fn disable(&mut self) {
-        self.ctrl().write(|w| w.disable().set_bit());
-    }
-
-    /// Reset the ICM controller
-    ///
-    /// Does not seem to clear DSCR, HASH addr
-    ///
-    /// The only way to clear the `URAD` and `URAT` fields
-    /// is by resetting the ICM controller
-    #[inline]
-    pub fn swrst(&mut self) {
-        self.ctrl().write(|w| w.swrst().set_bit());
-    }
-
-    /// Destroy the ICM peripheral and return the underlying ICM register
-    #[inline]
-    pub fn destroy(self) -> crate::pac::ICM {
-        self.icm
     }
 
     // Region specifics
@@ -1056,6 +1126,12 @@ impl Icm {
     pub fn set_hash_addr(&mut self, hash_addr_pointer: &HashArea) {
         self.hash()
             .write(|w| unsafe { w.hasa().bits((hash_addr_pointer as *const _) as u32 / 128) })
+    }
+
+    #[inline]
+    pub unsafe fn set_hash_addr_as_raw_ptr<T>(&mut self, hash_addr_pointer: *const T) {
+        self.hash()
+            .write(|w| unsafe { w.hasa().bits((hash_addr_pointer) as u32 / 128) })
     }
 
     /// Set the DSCR addr to a specific MainRegionDesc
@@ -1329,7 +1405,7 @@ impl MainRegionDesc<Region0> {
     ///
     /// HW expects a raw pointer to the memory address of the beginning of the
     /// [`MainRegionDesc`] but expressed as a multiple of 64
-    pub fn set_dscr_addr(&self, icm: &Icm) {
+    pub fn set_dscr_addr(&self, icm: &Icm<Disabled>) {
         icm.dscr()
             .write(|w| unsafe { w.dasa().bits((self as *const _) as u32 / 64) })
     }
