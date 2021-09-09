@@ -7,7 +7,7 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
 
-use super::extint::AnyExtInt;
+use super::extint::*;
 
 //==============================================================================
 // EIController
@@ -17,9 +17,9 @@ use super::extint::AnyExtInt;
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
 /// TODO
-pub struct EIController<M: ClockMode>
+pub struct EIController<M: Clock>
 where
-    M: ClockMode,
+    M: Clock,
 {
     eic: crate::pac::EIC,
     #[allow(dead_code)]
@@ -60,7 +60,7 @@ where
     }
 }
 
-impl EIController<NoClockOnlyAsync> {
+impl EIController<NoClock> {
     /// Create an EIC Controller without a clock source
     ///
     /// This limits the EIC functionality
@@ -84,7 +84,7 @@ impl EIController<NoClockOnlyAsync> {
             (
                 Enabled::new(Self {
                     eic,
-                    mode: NoClockOnlyAsync {},
+                    mode: NoClock {},
                 }),
                 Tokens::new(),
             )
@@ -94,7 +94,7 @@ impl EIController<NoClockOnlyAsync> {
 
 impl<M> Enabled<EIController<M>, U0>
 where
-    M: ClockMode,
+    M: Clock,
 {
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
@@ -106,7 +106,7 @@ where
 
 impl<M, N> Enabled<EIController<M>, N>
 where
-    M: ClockMode,
+    M: Clock,
     N: Counter,
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl Enabled<EIController<NoClockOnlyAsync>, U0> {
+impl Enabled<EIController<NoClock>, U0> {
     /// Disable and destroy the EIC controller
     pub fn destroy(self, _tokens: Tokens) -> crate::pac::EIC {
         self.0.eic
@@ -178,12 +178,12 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingDisabled, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
     {
-        SyncExtInt::new_sync(token, pin)
+        ExtInt::new_sync(token, pin)
     }
 
     // Private function that should be accessed through the ExtInt
@@ -227,7 +227,7 @@ where
 
 impl<M, N> Enabled<EIController<M>, N>
 where
-    M: ClockMode,
+    M: Clock,
     N: Counter,
 {
     /// TODO
@@ -235,11 +235,11 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> ExtInt<I, C, NoClock, FilteringDisabled, DebouncingDisabled, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
     {
-        AsyncExtInt::new_async(token, pin)
+        ExtInt::new_async(token, pin)
     }
 }

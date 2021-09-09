@@ -1,14 +1,17 @@
 use core::marker::PhantomData;
 
+use core::mem::transmute;
+
 use seq_macro::seq;
 
 use crate::clock::types::{Counter, Enabled};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
+use crate::clock::ClockSource;
 use crate::gpio::v2::{self as gpio, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
-use crate::typelevel::Sealed;
+use crate::typelevel::{Is, NoneT, Sealed};
 
 pub mod eicontroller;
 pub mod extint;
@@ -80,6 +83,17 @@ impl SenseModeT for SenseLow {
     const SENSE: Sense = Sense::Low;
 }
 
+/*
+pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
+    type Mode: SenseModeT;
+}
+
+//pub type SpecificSenseMode<S> = SenseModeT<<S as AnySenseMode>::Mode>;
+
+pub type SenseMode<S> = <S as AnySenseMode>::Mode;
+
+*/
+
 //==============================================================================
 // Debouncer
 //==============================================================================
@@ -117,11 +131,19 @@ pub trait FilteringT: Sealed {}
 pub struct FilteringEnabled {}
 impl Sealed for FilteringEnabled {}
 impl FilteringT for FilteringEnabled {}
+//impl AnyFilterMode for FilteringEnabled {}
 
 /// Filtering is disabled
 pub struct FilteringDisabled;
 impl Sealed for FilteringDisabled {}
 impl FilteringT for FilteringDisabled {}
+//impl AnyFilterMode for FilteringDisabled {}
+
+pub trait AnyFilterMode: Sealed + Is<Type = SpecificFilterMode<Self>> {
+    type Mode: FilteringT;
+}
+
+pub type SpecificFilterMode<F> = <F as AnyFilterMode>::Mode;
 
 //==============================================================================
 // EINum
@@ -233,17 +255,17 @@ seq!(N in 00..16 {
 });
 
 //==============================================================================
-// ClockMode
+// Clock
 //==============================================================================
 
 // Synchronous vs. asynchronous detection
 /// TODO
-pub trait ClockMode: Sealed {}
+pub trait Clock: Sealed {}
 
 /// AsyncMode only allows asynchronous edge detection
-pub struct NoClockOnlyAsync;
-impl Sealed for NoClockOnlyAsync {}
-impl ClockMode for NoClockOnlyAsync {}
+pub struct NoClock;
+impl Sealed for NoClock {}
+impl Clock for NoClock {}
 
 // When in WithClock, we have to store a clock resource
 /// SyncMode allows full EIC functionality
@@ -259,12 +281,17 @@ pub struct WithClock<C: EIClkSrc> {
     clock: PhantomData<C>,
 }
 impl<C: EIClkSrc> Sealed for WithClock<C> {}
-impl<C: EIClkSrc> ClockMode for WithClock<C> {}
+impl<C: EIClkSrc> Clock for WithClock<C> {}
+
+pub trait AnyClock: Sealed + Is<Type = SpecificClock> {
+    type Mode: Clock;
+}
+
+pub type SpecificClock = dyn Clock;
 
 // EI clock source for synchronous detection modes
-// TODO should this need Sealed?
 /// TODO
-pub trait EIClkSrc {
+pub trait EIClkSrc: Sealed {
     const CKSEL: CKSEL_A;
 }
 

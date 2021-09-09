@@ -6,6 +6,7 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 use crate::eic::v2::*;
 
 //use super::AnyExtInt;
+/*
 
 pub struct SyncExtInt<I, C, F, B, S>
 where
@@ -40,6 +41,7 @@ where
         }
     }
 }
+*/
 
 /*
 pub trait SyncExtInt {
@@ -63,6 +65,7 @@ pub trait SyncExtInt {
 //{
 //}
 
+/*
 impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
@@ -147,3 +150,4 @@ where
     }
 }
 
+*/

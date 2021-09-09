@@ -1,3 +1,4 @@
+/*
 use core::marker::PhantomData;
 
 use crate::clock::types::{Counter, Enabled};
@@ -49,7 +50,7 @@ where
     /// TODO
     pub fn set_sense<K, N>(
         &self,
-        eic: &mut Enabled<EIController<NoClockOnlyAsync>, N>,
+        eic: &mut Enabled<EIController<NoClock>, N>,
         sense: Sense,
     ) where
         N: Counter,
@@ -57,3 +58,4 @@ where
         eic.set_sense_mode::<I::EINum>(sense);
     }
 }
+*/
