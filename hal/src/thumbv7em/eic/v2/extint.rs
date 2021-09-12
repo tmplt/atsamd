@@ -17,35 +17,55 @@ pub use debounced::*;
 pub use filtered::*;
 
 //==============================================================================
-// ExternalInterrupt
+// FilteredExtInt
 //==============================================================================
-pub struct ExternalInterrupt<E>
+pub struct FilteredExtInt<E>
 where
     E: AnyExtInt,
 {
-    regs: Registers<E::Num>,
+    extint: E,
 }
 
-impl<E> ExternalInterrupt<E>
+impl<E> FilteredExtInt<E>
 where
-    E: AnyExtInt<
-        Clock = NoClock,
-        Filtering = FilteringDisabled,
-        Debouncing = DebouncingDisabled,
-    >,
+    E: AnyExtInt<Filtering = FilteringEnabled, Debouncing = DebouncingDisabled>,
 {
     pub fn test(&self) {}
 }
 
-impl<E> ExternalInterrupt<E>
+pub struct DebouncedExtInt<E>
 where
     E: AnyExtInt,
+{
+    extint: ExtInt<
+        <E as AnyExtInt>::Num,
+        <E as AnyExtInt>::Pin,
+        WithClock<<E as AnyExtInt>::Clock>,
+        FilteringDisabled,
+        DebouncingEnabled,
+        <E as AnyExtInt>::SenseMode,
+    >,
+}
+impl<E> DebouncedExtInt<E>
+where
+    E: AnyExtInt<Filtering = FilteringDisabled, Debouncing = DebouncingEnabled>,
 {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
     /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.regs.pin_state()
+    //pub fn pin_state(&self) -> bool {
+    //self.extint.regs.pin_state()
+    //self.extint.set_sense(
+    //}
+
+    /// Set the sense mode
+    /// TODO
+    pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<WithClock<K>>, N>, sense: Sense)
+    where
+        K: EIClkSrc,
+        N: Counter,
+    {
+        self.extint.set_sense(sense);
     }
 }
 

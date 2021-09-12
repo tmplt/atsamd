@@ -86,6 +86,18 @@ pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
 
 pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
 
+//impl AnySenseMode for dyn SenseMode {}
+/*
+impl<Id, S> AnyChannel for Channel<Id, S>
+where
+    Id: ChId,
+    S: Status,
+{
+    type Id = Id;
+    type Status = S;
+}
+*/
+
 //==============================================================================
 // Debouncer
 //==============================================================================
