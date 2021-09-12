@@ -8,11 +8,13 @@ use crate::eic::v2::*;
 
 use core::mem::transmute;
 
-pub mod extintasync;
-pub mod extintsync;
+pub mod asynconly;
+pub mod debounced;
+pub mod filtered;
 
-pub use extintasync::*;
-pub use extintsync::*;
+pub use asynconly::*;
+pub use debounced::*;
+pub use filtered::*;
 
 //==============================================================================
 // ExternalInterrupt
@@ -60,8 +62,8 @@ where
     I: GetEINum,
     C: InterruptConfig,
     M: Clock,
-    F: FilteringT,
-    B: DebouncingT,
+    F: Filtering,
+    B: Debouncing,
     S: SenseMode,
 {
     regs: Registers<I::EINum>,
@@ -78,8 +80,8 @@ where
     I: GetEINum,
     C: InterruptConfig,
     M: Clock,
-    F: FilteringT,
-    B: DebouncingT,
+    F: Filtering,
+    B: Debouncing,
     S: SenseMode,
 {
 }
@@ -280,9 +282,9 @@ where
     /// TODO
     type Clock: Clock;
     /// TODO
-    type Filtering: FilteringT;
+    type Filtering: Filtering;
     /// TODO
-    type Debouncing: DebouncingT;
+    type Debouncing: Debouncing;
     /// TODO
     type SenseMode: SenseMode;
 }
@@ -292,8 +294,8 @@ where
     I: EINum + GetEINum,
     C: InterruptConfig,
     M: Clock,
-    F: FilteringT,
-    B: DebouncingT,
+    F: Filtering,
+    B: Debouncing,
     S: SenseMode,
 {
     /// TODO
