@@ -1,9 +1,11 @@
+/*
 use core::marker::PhantomData;
 
 use crate::clock::types::{Counter, Enabled};
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
+*/
 
 //use super::AnyExtInt;
 /*
@@ -14,7 +16,7 @@ where
     C: InterruptConfig,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
@@ -70,7 +72,7 @@ impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseModeT,
+    S: SenseMode,
 {
     // Methods related to filtering and debouncing go here,
     // since they require a clock
@@ -133,7 +135,7 @@ impl<I, C, S> SyncExtInt<I, C, FilteringDisabled, DebouncingEnabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseModeT,
+    S: SenseMode,
 {
     /// TODO
     pub fn set_debouncer_settings<K, N>(

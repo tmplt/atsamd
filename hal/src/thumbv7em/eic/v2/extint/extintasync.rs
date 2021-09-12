@@ -12,7 +12,7 @@ where
     C: InterruptConfig,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
     #[allow(dead_code)]
     regs: Registers<I::EINum>,
@@ -45,7 +45,7 @@ impl<I, C, S> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseModeT,
+    S: SenseMode,
 {
     /// TODO
     pub fn set_sense<K, N>(

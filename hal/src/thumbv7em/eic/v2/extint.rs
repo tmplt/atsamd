@@ -62,7 +62,7 @@ where
     M: Clock,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
@@ -80,7 +80,7 @@ where
     M: Clock,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
 }
 
@@ -127,7 +127,7 @@ impl<I, C, S> ExtInt<I, C, NoClock, FilteringDisabled, DebouncingDisabled, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    S: SenseModeT,
+    S: SenseMode,
 {
     /// TODO
     pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<NoClock>, N>, sense: Sense)
@@ -143,7 +143,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
     K: EIClkSrc,
-    S: SenseModeT,
+    S: SenseMode,
 {
     // Methods related to filtering and debouncing go here,
     // since they require a clock
@@ -206,7 +206,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
     K: EIClkSrc,
-    S: SenseModeT,
+    S: SenseMode,
 {
     /// TODO
     pub fn set_debouncer_settings<N>(
@@ -229,7 +229,7 @@ where
     C: InterruptConfig,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
@@ -244,7 +244,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
     F: FilteringT,
-    S: SenseModeT,
+    S: SenseMode,
 {
 }
 */
@@ -256,7 +256,7 @@ where
     C: InterruptConfig,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {}
 */
 
@@ -284,7 +284,7 @@ where
     /// TODO
     type Debouncing: DebouncingT;
     /// TODO
-    type SenseMode: SenseModeT;
+    type SenseMode: SenseMode;
 }
 
 impl<I, C, M, F, B, S> AnyExtInt for ExtInt<I, C, M, F, B, S>
@@ -294,7 +294,7 @@ where
     M: Clock,
     F: FilteringT,
     B: DebouncingT,
-    S: SenseModeT,
+    S: SenseMode,
 {
     /// TODO
     type Num = I;

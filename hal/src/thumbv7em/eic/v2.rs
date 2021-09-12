@@ -1,17 +1,14 @@
 use core::marker::PhantomData;
 
-use core::mem::transmute;
-
 use seq_macro::seq;
 
 use crate::clock::types::{Counter, Enabled};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
-use crate::clock::ClockSource;
 use crate::gpio::v2::{self as gpio, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
-use crate::typelevel::{Is, NoneT, Sealed};
+use crate::typelevel::{Is, Sealed};
 
 pub mod eicontroller;
 pub mod extint;
@@ -37,62 +34,60 @@ pub enum Sense {
 }
 
 /// TODO
-pub trait SenseModeT: Sealed {
+pub trait SenseMode: Sealed {
     const SENSE: Sense;
 }
 
 /// TODO
 pub struct SenseNone {}
 impl Sealed for SenseNone {}
-impl SenseModeT for SenseNone {
+impl SenseMode for SenseNone {
     const SENSE: Sense = Sense::None;
 }
 
 /// TODO
 pub struct SenseRise {}
 impl Sealed for SenseRise {}
-impl SenseModeT for SenseRise {
+impl SenseMode for SenseRise {
     const SENSE: Sense = Sense::Rise;
 }
 
 /// TODO
 pub struct SenseFall {}
 impl Sealed for SenseFall {}
-impl SenseModeT for SenseFall {
+impl SenseMode for SenseFall {
     const SENSE: Sense = Sense::Fall;
 }
 
 /// TODO
 pub struct SenseBoth {}
 impl Sealed for SenseBoth {}
-impl SenseModeT for SenseBoth {
+impl SenseMode for SenseBoth {
     const SENSE: Sense = Sense::Both;
 }
 
 /// TODO
 pub struct SenseHigh {}
 impl Sealed for SenseHigh {}
-impl SenseModeT for SenseHigh {
+impl SenseMode for SenseHigh {
     const SENSE: Sense = Sense::High;
 }
 
 /// TODO
 pub struct SenseLow {}
 impl Sealed for SenseLow {}
-impl SenseModeT for SenseLow {
+impl SenseMode for SenseLow {
     const SENSE: Sense = Sense::Low;
 }
 
-/*
 pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
-    type Mode: SenseModeT;
+    type Mode: SenseMode;
 }
 
-//pub type SpecificSenseMode<S> = SenseModeT<<S as AnySenseMode>::Mode>;
+pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
 
-pub type SenseMode<S> = <S as AnySenseMode>::Mode;
+//pub type SenseMode = <S as AnySenseMode>::Mode;
 
-*/
 
 //==============================================================================
 // Debouncer
