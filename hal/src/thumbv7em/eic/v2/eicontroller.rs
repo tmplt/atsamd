@@ -25,10 +25,10 @@ where
     _clockmode: PhantomData<AK>,
 }
 
-impl<CS, AK> EIController<AK>
+impl<AK, CS> EIController<AK>
 where
-    CS: EIClkSrc + Increment,
     AK: AnyClock<Mode = WithClock<CS>>,
+    CS: EIClkSrc + Increment,
 {
     /// Create an EIC Controller with a clock source
     ///
@@ -37,7 +37,10 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(eic: crate::pac::EIC, clock: CS) -> (Enabled<EIController<AK>, U0>, Tokens, CS::Inc)
+    pub fn new(
+        eic: crate::pac::EIC,
+        clock: CS, //) -> (Enabled<EIController<AK>, U0>, Tokens, CS::Inc)
+    ) -> (Enabled<EIController<WithClock<CS>>, U0>, Tokens, CS::Inc)
     where
         AK: AnyClock<Mode = WithClock<CS>>,
     {
@@ -48,11 +51,13 @@ where
         }
 
         // Set CKSEL to match the clock resource provided
-        eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
+        //eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
+        eic.ctrla
+            .modify(|_, w| w.cksel().variant(AK::ClockSource::CKSEL));
 
         unsafe {
             (
-                Enabled::new(Self {
+                Enabled::new( EIController::<WithClock::<CS>> {
                     eic,
                     _clockmode: PhantomData,
                 }),
@@ -74,7 +79,7 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<AK>, U0>, Tokens)
+    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<NoClock>, U0>, Tokens)
     where
         AK: AnyClock<Mode = NoClock>,
     {
@@ -91,9 +96,8 @@ where
 
         unsafe {
             (
-                Enabled::new(Self {
+                Enabled::new(EIController::<NoClock> {
                     eic,
-                    //_clockmode: NoClock {},
                     _clockmode: PhantomData,
                 }),
                 Tokens::new(),

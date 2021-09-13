@@ -104,7 +104,7 @@ impl DebounceMode for SenseBoth {}
 /// Type class for all possible [`SenseMode`] types
 ///
 /// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
-/// [`Config`] types. See the `AnyKind` documentation for more details on the
+/// [`Sense`] types. See the `AnyKind` documentation for more details on the
 /// pattern.
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
@@ -299,7 +299,7 @@ impl<C: EIClkSrc> Clock for WithClock<C> {}
 /// Type class for all possible [`Clock`] types
 ///
 /// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
-/// [`Config`] types. See the `AnyKind` documentation for more details on the
+/// [`Clock`] types. See the `AnyKind` documentation for more details on the
 /// pattern.
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
