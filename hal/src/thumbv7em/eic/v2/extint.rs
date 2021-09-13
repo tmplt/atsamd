@@ -180,7 +180,13 @@ where
         self,
         eic: &mut Enabled<EIController<WithClock<CS>>, N>,
     ) -> DebouncedExtInt<
-        I, C, CS, S
+        /*
+        <E as AnyExtInt>::Num,
+        <E as AnyExtInt>::Pin,
+        <E as AnyExtInt>::Clock,
+        <E as AnyExtInt>::SenseMode,
+        */
+        I, C, WithClock<CS>, S
     >
     where
         E: AnyExtInt,
@@ -190,12 +196,21 @@ where
         // generic over the EINum. Either way is fine.
         eic.enable_debouncing::<I::EINum>();
         DebouncedExtInt {
+            extint: self,
+            /*
+            extint: ExtInt {
+                regs: self.regs,
+                pin: self.pin,
+            } ,
+            */
+            /*
             extint: ExtInt {
                 regs: self.regs,
                 pin: self.pin,
                 clockmode: PhantomData,
                 sensemode: PhantomData,
             } ,
+            */
         }
     }
 }
