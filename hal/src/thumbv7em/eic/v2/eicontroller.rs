@@ -190,7 +190,7 @@ where
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
     /// TODO
-    pub(super) fn enable_debouncer<E: EINum>(&mut self) {
+    pub(super) fn enable_debouncing<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
             w.debouncen().bits(bits | E::MASK)

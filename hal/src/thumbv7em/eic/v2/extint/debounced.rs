@@ -22,3 +22,12 @@ where
     S: SenseMode,
 {
 }
+
+impl<I, C, K, S> DebouncedExtInt<I, C, K, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    K: EIClkSrc,
+    S: SenseMode,
+{
+}

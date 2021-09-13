@@ -86,7 +86,6 @@ where
     K: Clock,
     S: SenseMode,
 {
-    #[allow(dead_code)]
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
@@ -94,6 +93,7 @@ where
     sensemode: PhantomData<S>,
 }
 
+// Sealed for ExtInt
 impl<I, C, K, S> Sealed for ExtInt<I, C, K, S>
 where
     I: GetEINum,
@@ -109,6 +109,7 @@ where
     C: InterruptConfig,
     K: EIClkSrc,
 {
+    /// Create initial synchronous ExtInt
     /// TODO
     pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the ExtInt (e.g. set the Asynchronous Mode register)
@@ -126,6 +127,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
 {
+    /// Create initial asynchronous ExtInt
     /// TODO
     pub(crate) fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
@@ -138,6 +140,7 @@ where
     }
 }
 
+// Methods for any state of ExtInt
 impl<I, C, K, S> ExtInt<I, C, K, S>
 where
     I: GetEINum,
@@ -173,7 +176,7 @@ where
     // since they require a clock
 
     /// TODO
-    pub fn enable_debouncer<N>(
+    pub fn enable_debouncing<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<K>>, N>,
     ) -> DebouncedExtInt<I, C, K, S>
@@ -182,10 +185,8 @@ where
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
-        eic.enable_debouncer::<I::EINum>();
-        DebouncedExtInt {
-            extint: self,
-        }
+        eic.enable_debouncing::<I::EINum>();
+        DebouncedExtInt { extint: self }
     }
 
     // Must have access to the EIController here
@@ -200,9 +201,7 @@ where
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_filtering::<I::EINum>();
-        FilteredExtInt {
-            extint: self,
-        }
+        FilteredExtInt { extint: self }
     }
 }
 
