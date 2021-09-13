@@ -178,7 +178,7 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> ExtInt<I, C, WithClock<K>, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
@@ -235,7 +235,7 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, NoClock, FilteringDisabled, DebouncingDisabled, SenseNone>
+    ) -> ExtInt<I, C, NoClock, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,

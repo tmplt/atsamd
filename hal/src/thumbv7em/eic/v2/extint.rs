@@ -19,6 +19,7 @@ pub use filtered::*;
 //==============================================================================
 // FilteredExtInt
 //==============================================================================
+/*
 pub struct FilteredExtInt<E>
 where
     E: AnyExtInt,
@@ -51,7 +52,7 @@ where
     E: AnyExtInt<Filtering = FilteringDisabled, Debouncing = DebouncingEnabled>,
 {
     // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
+    /// Read tf0138040.dnghe pin state of the ExtInt
     /// TODO
     //pub fn pin_state(&self) -> bool {
     //self.extint.regs.pin_state()
@@ -59,7 +60,7 @@ where
     //}
 
     /// Set the sense mode
-    /// TODO
+    /// TODOf0138040.dng
     pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<WithClock<K>>, N>, sense: Sense)
     where
         K: EIClkSrc,
@@ -68,6 +69,7 @@ where
         self.extint.set_sense(sense);
     }
 }
+*/
 
 //==============================================================================
 // ExtInt
@@ -77,36 +79,31 @@ where
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, M, F, B, S>
+pub struct ExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    M: Clock,
-    F: Filtering,
-    B: Debouncing,
+    K: Clock,
     S: SenseMode,
 {
+    #[allow(dead_code)]
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
-    clockmode: PhantomData<M>,
-    filtering: PhantomData<F>,
-    debouncing: PhantomData<B>,
+    clockmode: PhantomData<K>,
     sensemode: PhantomData<S>,
 }
 
-impl<I, C, M, F, B, S> Sealed for ExtInt<I, C, M, F, B, S>
+impl<I, C, K, S> Sealed for ExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    M: Clock,
-    F: Filtering,
-    B: Debouncing,
+    K: Clock,
     S: SenseMode,
 {
 }
 
-impl<I, C, K> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingDisabled, SenseNone>
+impl<I, C, K> ExtInt<I, C, WithClock<K>, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -119,14 +116,12 @@ where
             regs: token.regs,
             pin,
             clockmode: PhantomData,
-            filtering: PhantomData,
-            debouncing: PhantomData,
             sensemode: PhantomData,
         }
     }
 }
 
-impl<I, C> ExtInt<I, C, NoClock, FilteringDisabled, DebouncingDisabled, SenseNone>
+impl<I, C> ExtInt<I, C, NoClock, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -138,29 +133,36 @@ where
             regs: token.regs,
             pin,
             clockmode: PhantomData,
-            filtering: PhantomData,
-            debouncing: PhantomData,
             sensemode: PhantomData,
         }
     }
 }
 
-impl<I, C, S> ExtInt<I, C, NoClock, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C, K, S> ExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    K: Clock,
     S: SenseMode,
 {
+    // Must have access to the EIController here
     /// TODO
-    pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<NoClock>, N>, sense: Sense)
+    pub fn set_sense<N>(&self, eic: &mut Enabled<EIController<NoClock>, N>, sense: Sense)
     where
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(sense);
     }
+
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
+    /// TODO
+    pub fn pin_state(&self) -> bool {
+        self.regs.pin_state()
+    }
 }
 
-impl<I, C, K, S> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingDisabled, S>
+impl<I, C, K, S> ExtInt<I, C, WithClock<K>, S>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -170,33 +172,19 @@ where
     // Methods related to filtering and debouncing go here,
     // since they require a clock
 
-    // Must have access to the EIController here
-    /// TODO
-    pub fn set_sense<N>(&self, eic: &mut Enabled<EIController<WithClock<K>>, N>, sense: Sense)
-    where
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(sense);
-    }
-
     /// TODO
     pub fn enable_debouncer<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingEnabled, S>
+    ) -> DebouncedExtInt<I, C, K, S>
     where
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncer::<I::EINum>();
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: self.clockmode,
-            filtering: self.filtering,
-            debouncing: PhantomData::<DebouncingEnabled>,
-            sensemode: self.sensemode,
+        DebouncedExtInt {
+            extint: self,
         }
     }
 
@@ -205,25 +193,20 @@ where
     pub fn enable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> ExtInt<I, C, WithClock<K>, FilteringEnabled, DebouncingDisabled, S>
+    ) -> FilteredExtInt<I, C, K, S>
     where
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_filtering::<I::EINum>();
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: self.clockmode,
-            filtering: PhantomData::<FilteringEnabled>,
-            debouncing: self.debouncing,
-            sensemode: self.sensemode,
+        FilteredExtInt {
+            extint: self,
         }
     }
 }
 
-impl<I, C, K, S> ExtInt<I, C, WithClock<K>, FilteringDisabled, DebouncingEnabled, S>
+impl<I, C, K, S> ExtInt<I, C, WithClock<K>, S>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -243,44 +226,6 @@ where
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
 }
-
-/*
-impl<I, C, F, B, S> ExtInt<I, C, F, B, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    F: FilteringT,
-    B: DebouncingT,
-    S: SenseMode,
-{
-    // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
-    /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.regs.pin_state()
-    }
-}
-
-impl<I, C, F, S> ExtInt<I, C, F, DebouncingDisabled, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    F: FilteringT,
-    S: SenseMode,
-{
-}
-*/
-
-/*
-impl<I, C, F, B, S> ExtIntT for ExtInt<I, C, F, B, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    F: FilteringT,
-    B: DebouncingT,
-    S: SenseMode,
-{}
-*/
 
 //==============================================================================
 // AnyExtInt
@@ -302,20 +247,18 @@ where
     /// TODO
     type Clock: Clock;
     /// TODO
-    type Filtering: Filtering;
+    //type Filtering: Filtering;
     /// TODO
-    type Debouncing: Debouncing;
+    //type Debouncing: Debouncing;
     /// TODO
     type SenseMode: SenseMode;
 }
 
-impl<I, C, M, F, B, S> AnyExtInt for ExtInt<I, C, M, F, B, S>
+impl<I, C, K, S> AnyExtInt for ExtInt<I, C, K, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
-    M: Clock,
-    F: Filtering,
-    B: Debouncing,
+    K: Clock,
     S: SenseMode,
 {
     /// TODO
@@ -323,11 +266,11 @@ where
     /// TODO
     type Pin = C;
     /// TODO
-    type Clock = M;
+    type Clock = K;
     /// TODO
-    type Filtering = F;
+    //type Filtering = F;
     /// TODO
-    type Debouncing = B;
+    //type Debouncing = B;
     /// TODO
     type SenseMode = S;
 }
@@ -335,8 +278,8 @@ pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
     <E as AnyExtInt>::Pin,
     <E as AnyExtInt>::Clock,
-    <E as AnyExtInt>::Filtering,
-    <E as AnyExtInt>::Debouncing,
+    //<E as AnyExtInt>::Filtering,
+    //<E as AnyExtInt>::Debouncing,
     <E as AnyExtInt>::SenseMode,
 >;
 
