@@ -17,13 +17,12 @@ use super::extint::*;
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
 /// TODO
-pub struct EIController<M: Clock>
+pub struct EIController<K: Clock>
 where
-    M: Clock,
+    K: Clock,
 {
     eic: crate::pac::EIC,
-    #[allow(dead_code)]
-    mode: M,
+    _mode: K,
 }
 
 impl<K> EIController<WithClock<K>>
@@ -51,7 +50,7 @@ where
             (
                 Enabled::new(Self {
                     eic,
-                    mode: WithClock { clock: PhantomData },
+                    _mode: WithClock { clock: PhantomData },
                 }),
                 Tokens::new(),
                 clock.inc(),
@@ -84,7 +83,7 @@ impl EIController<NoClock> {
             (
                 Enabled::new(Self {
                     eic,
-                    mode: NoClock {},
+                    _mode: NoClock {},
                 }),
                 Tokens::new(),
             )
@@ -104,9 +103,9 @@ where
     }
 }
 
-impl<M, N> Enabled<EIController<M>, N>
+impl<K, N> Enabled<EIController<K>, N>
 where
-    M: Clock,
+    K: Clock,
     N: Counter,
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
@@ -130,12 +129,12 @@ where
     }
 }
 
-impl<K> Enabled<EIController<WithClock<K>>, U0>
+impl<CS> Enabled<EIController<WithClock<CS>>, U0>
 where
-    K: EIClkSrc + Decrement,
+    CS: EIClkSrc + Decrement,
 {
     /// Disable and destroy the EIC controller
-    pub fn destroy<S>(self, _tokens: Tokens, clock: K) -> (crate::pac::EIC, K::Dec)
+    pub fn destroy<S>(self, _tokens: Tokens, clock: CS) -> (crate::pac::EIC, CS::Dec)
     where
         S: EIClkSrc + Decrement,
     {
@@ -148,7 +147,7 @@ where
         self.syncbusy_swrst();
 
         // Set CKSEL to match the clock resource provided
-        self.0.eic.ctrla.modify(|_, w| w.cksel().variant(K::CKSEL));
+        self.0.eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
     }
 }
 
@@ -168,9 +167,9 @@ impl Enabled<EIController<NoClock>, U0> {
     }
 }
 
-impl<K, N> Enabled<EIController<WithClock<K>>, N>
+impl<CS, N> Enabled<EIController<WithClock<CS>>, N>
 where
-    K: EIClkSrc,
+    CS: EIClkSrc,
     N: Counter,
 {
     /// TODO
@@ -178,7 +177,7 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, WithClock<K>, SenseNone>
+    ) -> ExtInt<I, C, WithClock<CS>, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,
@@ -225,9 +224,9 @@ where
     }
 }
 
-impl<M, N> Enabled<EIController<M>, N>
+impl<K, N> Enabled<EIController<K>, N>
 where
-    M: Clock,
+    K: Clock,
     N: Counter,
 {
     /// TODO
