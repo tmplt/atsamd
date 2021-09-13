@@ -79,26 +79,26 @@ where
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, K, S>
+pub struct ExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: AnyClock,
+    AK: AnyClock,
     S: SenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
-    clockmode: PhantomData<K>,
+    clockmode: PhantomData<AK>,
     sensemode: PhantomData<S>,
 }
 
 // Sealed for ExtInt
-impl<I, C, K, S> Sealed for ExtInt<I, C, K, S>
+impl<I, C, AK, S> Sealed for ExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: AnyClock,
+    AK: AnyClock,
     S: SenseMode,
 {
 }

@@ -151,21 +151,6 @@ any_sense!(SenseLow);
 // Debouncer
 //==============================================================================
 
-/*
-/// TODO
-pub trait Debouncing: Sealed {}
-
-/// Debouncing is enabled
-pub enum DebouncingEnabled {}
-impl Sealed for DebouncingEnabled {}
-impl Debouncing for DebouncingEnabled {}
-
-/// Debouncing is disabled
-pub enum DebouncingDisabled {}
-impl Sealed for DebouncingDisabled {}
-impl Debouncing for DebouncingDisabled {}
-*/
-
 /// TODO
 pub struct DebouncerSettings {
     pub tickon: TICKON_A,
@@ -175,34 +160,6 @@ pub struct DebouncerSettings {
     pub states1: STATES1_A,
 }
 
-//==============================================================================
-// Filtering
-//==============================================================================
-
-/*
-/// TODO
-pub trait Filtering: Sealed {}
-
-/// Filtering is enabled
-pub enum FilteringEnabled {}
-impl Sealed for FilteringEnabled {}
-impl Filtering for FilteringEnabled {}
-//impl AnyFilterMode for FilteringEnabled {}
-
-/// Filtering is disabled
-pub enum FilteringDisabled {}
-impl Sealed for FilteringDisabled {}
-impl Filtering for FilteringDisabled {}
-//impl AnyFilterMode for FilteringDisabled {}
-
-pub trait AnyFilterMode: Sealed + Is<Type = SpecificFilterMode<Self>> {
-    type Mode: Filtering;
-}
-
-pub type SpecificFilterMode<F> = <F as AnyFilterMode>::Mode;
-*/
-
-//==============================================================================
 // EINum
 //==============================================================================
 
