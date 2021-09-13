@@ -4,21 +4,21 @@ use crate::eic::v2::*;
 
 use super::ExtInt;
 
-pub struct FilteredExtInt<I, C, K, S>
+pub struct FilteredExtInt<I, C, CS, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: EIClkSrc,
+    CS: EIClkSrc,
     S: SenseMode,
 {
-    pub extint: ExtInt<I, C, WithClock<K>, S>,
+    pub extint: ExtInt<I, C, WithClock<CS>, S>,
 }
 
-impl<I, C, K, S> FilteredExtInt<I, C, K, S>
+impl<I, C, CS, S> FilteredExtInt<I, C, CS, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: EIClkSrc,
+    CS: EIClkSrc,
     S: SenseMode,
 {
 }

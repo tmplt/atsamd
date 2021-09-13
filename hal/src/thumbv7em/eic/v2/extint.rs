@@ -165,36 +165,57 @@ where
     }
 }
 
-impl<I, C, K, S> ExtInt<I, C, WithClock<K>, S>
+impl<I, C, CS, S> ExtInt<I, C, WithClock<CS>, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: EIClkSrc,
-    S: SenseMode,
+    CS: EIClkSrc,
+    S: DebounceMode,
 {
     // Methods related to filtering and debouncing go here,
     // since they require a clock
 
     /// TODO
-    pub fn enable_debouncing<N>(
+    pub fn enable_debouncing<E, N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> DebouncedExtInt<I, C, K, S>
+        eic: &mut Enabled<EIController<WithClock<CS>>, N>,
+    ) -> DebouncedExtInt<
+        I, C, CS, S
+    >
     where
+        E: AnyExtInt,
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncing::<I::EINum>();
-        DebouncedExtInt { extint: self }
+        DebouncedExtInt {
+            extint: ExtInt {
+                regs: self.regs,
+                pin: self.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            } ,
+        }
     }
+}
+
+impl<I, C, CS, S> ExtInt<I, C, WithClock<CS>, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    CS: EIClkSrc,
+    S: SenseMode,
+{
+    // Methods related to filtering and debouncing go here,
+    // since they require a clock
 
     // Must have access to the EIController here
     /// TODO
     pub fn enable_filtering<N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<K>>, N>,
-    ) -> FilteredExtInt<I, C, K, S>
+        eic: &mut Enabled<EIController<WithClock<CS>>, N>,
+    ) -> FilteredExtInt<I, C, CS, S>
     where
         N: Counter,
     {

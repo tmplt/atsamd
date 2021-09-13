@@ -20,6 +20,45 @@ pub use crate::eic::v2::extint::{asynconly::*, debounced::*, filtered::*};
 // Sense
 //==============================================================================
 
+/// Type class for all possible [`SenseMode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Config`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
+    type Mode: SenseMode;
+}
+
+pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
+
+/*
+impl<S> AnySenseMode for S
+where
+    S: SenseMode,
+{
+    type Mode = S;
+}
+
+impl<S: SenseMode> AsRef<Self> for S {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+*/
+
+/*
+impl AsMut<Self> for Sense {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+*/
+
 // Need a custom type, because the PAC has 8 identical copies
 // of the same enum. There's probably a way to patch the PAC
 /// Detection Mode
@@ -39,81 +78,83 @@ pub trait SenseMode: Sealed {
 }
 
 /// TODO
-pub struct SenseNone {}
+pub enum SenseNone {}
+/// TODO
+pub enum SenseRise {}
+/// TODO
+pub enum SenseFall {}
+/// TODO
+pub enum SenseBoth {}
+/// TODO
+pub enum SenseHigh {}
+/// TODO
+pub enum SenseLow {}
+
 impl Sealed for SenseNone {}
+impl Sealed for SenseRise {}
+impl Sealed for SenseFall {}
+impl Sealed for SenseBoth {}
+impl Sealed for SenseHigh {}
+impl Sealed for SenseLow {}
+
 impl SenseMode for SenseNone {
     const SENSE: Sense = Sense::None;
 }
-
-/// TODO
-pub struct SenseRise {}
-impl Sealed for SenseRise {}
 impl SenseMode for SenseRise {
     const SENSE: Sense = Sense::Rise;
 }
-
-/// TODO
-pub struct SenseFall {}
-impl Sealed for SenseFall {}
 impl SenseMode for SenseFall {
     const SENSE: Sense = Sense::Fall;
 }
-
-/// TODO
-pub struct SenseBoth {}
-impl Sealed for SenseBoth {}
 impl SenseMode for SenseBoth {
     const SENSE: Sense = Sense::Both;
 }
-
-/// TODO
-pub struct SenseHigh {}
-impl Sealed for SenseHigh {}
 impl SenseMode for SenseHigh {
     const SENSE: Sense = Sense::High;
 }
-
-/// TODO
-pub struct SenseLow {}
-impl Sealed for SenseLow {}
 impl SenseMode for SenseLow {
     const SENSE: Sense = Sense::Low;
 }
 
-pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
-    type Mode: SenseMode;
-}
 
-pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
+/// Valid SenseModes for Level Detection
+/// TODO
+pub trait LevelDetectMode: SenseMode {}
+impl LevelDetectMode for SenseHigh {}
+impl LevelDetectMode for SenseLow {}
 
-//impl AnySenseMode for dyn SenseMode {}
-/*
-impl<Id, S> AnyChannel for Channel<Id, S>
-where
-    Id: ChId,
-    S: Status,
-{
-    type Id = Id;
-    type Status = S;
-}
-*/
+/// Valid SenseModes for Edge Detection
+/// TODO
+pub trait EdgeDetectMode: SenseMode {}
+impl EdgeDetectMode for SenseRise {}
+impl EdgeDetectMode for SenseFall {}
+impl EdgeDetectMode for SenseBoth {}
+
+/// Valid SenseModes with Debouncing active
+/// TODO
+pub trait DebounceMode: EdgeDetectMode {}
+impl DebounceMode for SenseRise {}
+impl DebounceMode for SenseFall {}
+impl DebounceMode for SenseBoth {}
 
 //==============================================================================
 // Debouncer
 //==============================================================================
 
+/*
 /// TODO
 pub trait Debouncing: Sealed {}
 
 /// Debouncing is enabled
-pub struct DebouncingEnabled {}
+pub enum DebouncingEnabled {}
 impl Sealed for DebouncingEnabled {}
 impl Debouncing for DebouncingEnabled {}
 
 /// Debouncing is disabled
-pub struct DebouncingDisabled;
+pub enum DebouncingDisabled {}
 impl Sealed for DebouncingDisabled {}
 impl Debouncing for DebouncingDisabled {}
+*/
 
 /// TODO
 pub struct DebouncerSettings {
@@ -128,17 +169,18 @@ pub struct DebouncerSettings {
 // Filtering
 //==============================================================================
 
+/*
 /// TODO
 pub trait Filtering: Sealed {}
 
 /// Filtering is enabled
-pub struct FilteringEnabled {}
+pub enum FilteringEnabled {}
 impl Sealed for FilteringEnabled {}
 impl Filtering for FilteringEnabled {}
 //impl AnyFilterMode for FilteringEnabled {}
 
 /// Filtering is disabled
-pub struct FilteringDisabled;
+pub enum FilteringDisabled {}
 impl Sealed for FilteringDisabled {}
 impl Filtering for FilteringDisabled {}
 //impl AnyFilterMode for FilteringDisabled {}
@@ -148,6 +190,7 @@ pub trait AnyFilterMode: Sealed + Is<Type = SpecificFilterMode<Self>> {
 }
 
 pub type SpecificFilterMode<F> = <F as AnyFilterMode>::Mode;
+*/
 
 //==============================================================================
 // EINum

@@ -1,33 +1,30 @@
+use crate::eic::v2::*;
 use crate::gpio::v2::InterruptConfig;
 
-use crate::eic::v2::*;
+use super::{AnyExtInt, ExtInt};
 
-use super::ExtInt;
+//pub struct DebouncedExtInt<E>
+pub struct DebouncedExtInt<I, C, CS, S>
+where
+    //E: AnyExtInt,
+    I: GetEINum,
+    C: InterruptConfig,
+    CS: EIClkSrc,
+    S: SenseMode,
+{
+    //pub extint: E,
+    pub extint: ExtInt<I, C, WithClock<CS>, S>,
+}
 
-pub struct DebouncedExtInt<I, C, K, S>
+impl<I, C, CS, S> DebouncedExtInt<I, C, CS, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: EIClkSrc,
-    S: SenseMode,
-{
-    pub extint: ExtInt<I, C, WithClock<K>, S>,
-}
-
-impl<I, C, K, S> DebouncedExtInt<I, C, K, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    K: EIClkSrc,
+    CS: EIClkSrc,
     S: SenseMode,
 {
 }
 
-impl<I, C, K, S> DebouncedExtInt<I, C, K, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    K: EIClkSrc,
-    S: SenseMode,
-{
-}
+//impl<E> DebouncedExtInt<E> where E: AnyExtInt<SenseMode = SenseRise> {}
+
+//impl<E> DebouncedExtInt<E> where E: AnyExtInt {}
