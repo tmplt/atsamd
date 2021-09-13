@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use paste::paste;
 use seq_macro::seq;
 
 use crate::clock::types::{Counter, Enabled};
@@ -19,45 +20,6 @@ pub use crate::eic::v2::extint::{asynconly::*, debounced::*, filtered::*};
 //==============================================================================
 // Sense
 //==============================================================================
-
-/// Type class for all possible [`SenseMode`] types
-///
-/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
-/// [`Config`] types. See the `AnyKind` documentation for more details on the
-/// pattern.
-///
-/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
-/// [type class]: crate::typelevel#type-classes
-pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
-    type Mode: SenseMode;
-}
-
-pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
-
-/*
-impl<S> AnySenseMode for S
-where
-    S: SenseMode,
-{
-    type Mode = S;
-}
-
-impl<S: SenseMode> AsRef<Self> for S {
-    #[inline]
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-*/
-
-/*
-impl AsMut<Self> for Sense {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-*/
 
 // Need a custom type, because the PAC has 8 identical copies
 // of the same enum. There's probably a way to patch the PAC
@@ -135,6 +97,55 @@ pub trait DebounceMode: EdgeDetectMode {}
 impl DebounceMode for SenseRise {}
 impl DebounceMode for SenseFall {}
 impl DebounceMode for SenseBoth {}
+
+//==============================================================================
+// AnySenseMode
+//==============================================================================
+/// Type class for all possible [`SenseMode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Config`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
+    type Mode: SenseMode;
+}
+
+pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
+
+macro_rules! any_sense {
+    ($name:ident) => {
+        paste! {
+        impl AnySenseMode for [<$name>]
+        {
+            type Mode = [<$name>];
+        }
+
+        impl AsRef<Self> for [<$name>] {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+        impl AsMut<Self> for [<$name>] {
+            #[inline]
+            fn as_mut(&mut self) -> &mut Self {
+                self
+            }
+        }
+
+                }
+    };
+}
+
+any_sense!(SenseNone);
+any_sense!(SenseRise);
+any_sense!(SenseFall);
+any_sense!(SenseBoth);
+any_sense!(SenseHigh);
+any_sense!(SenseLow);
 
 //==============================================================================
 // Debouncer
@@ -328,7 +339,14 @@ pub struct WithClock<C: EIClkSrc> {
 impl<C: EIClkSrc> Sealed for WithClock<C> {}
 impl<C: EIClkSrc> Clock for WithClock<C> {}
 
-/// TODO
+/// Type class for all possible [`Clock`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Config`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
 pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
     type Mode: Clock;
     type ClockSource: EIClkSrc;
@@ -348,7 +366,7 @@ where
     CS: EIClkSrc,
 {
     type Mode = WithClock<CS>;
-    type ClockSource = CS; 
+    type ClockSource = CS;
 }
 
 impl AsRef<Self> for NoClock {

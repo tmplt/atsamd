@@ -37,7 +37,10 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(eic: crate::pac::EIC, clock: CS) -> (Enabled<Self, U0>, Tokens, CS::Inc) {
+    pub fn new(eic: crate::pac::EIC, clock: CS) -> (Enabled<EIController<AK>, U0>, Tokens, CS::Inc)
+    where
+        AK: AnyClock<Mode = WithClock<CS>>,
+    {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -71,7 +74,10 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<Self, U0>, Tokens) {
+    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<AK>, U0>, Tokens)
+    where
+        AK: AnyClock<Mode = NoClock>,
+    {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
