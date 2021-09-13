@@ -83,7 +83,7 @@ pub struct ExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
     S: SenseMode,
 {
     regs: Registers<I::EINum>,
@@ -98,7 +98,7 @@ impl<I, C, K, S> Sealed for ExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
     S: SenseMode,
 {
 }
@@ -141,19 +141,19 @@ where
 }
 
 // Methods for any state of ExtInt
-impl<I, C, K, S> ExtInt<I, C, K, S>
+impl<I, C, AK, S> ExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    AK: AnyClock,
     S: SenseMode,
 {
     // Must have access to the EIController here
     /// TODO
     pub fn set_sense_none<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseNone>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseNone>
     where
         N: Counter,
     {
@@ -169,8 +169,8 @@ where
     /// TODO
     pub fn set_sense_high<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseHigh>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseHigh>
     where
         N: Counter,
     {
@@ -186,8 +186,8 @@ where
     /// TODO
     pub fn set_sense_low<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseLow>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseLow>
     where
         N: Counter,
     {
@@ -203,8 +203,8 @@ where
     /// TODO
     pub fn set_sense_rise<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseRise>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseRise>
     where
         N: Counter,
     {
@@ -220,8 +220,8 @@ where
     /// TODO
     pub fn set_sense_fall<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseFall>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseFall>
     where
         N: Counter,
     {
@@ -237,8 +237,8 @@ where
     /// TODO
     pub fn set_sense_both<N>(
         self,
-        eic: &mut Enabled<EIController<K>, N>,
-    ) -> ExtInt<I, C, K, SenseBoth>
+        eic: &mut Enabled<EIController<AK>, N>,
+    ) -> ExtInt<I, C, AK, SenseBoth>
     where
         N: Counter,
     {
@@ -265,7 +265,7 @@ impl<I, C, K> ExtInt<I, C, K, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
 {
 }
 
@@ -294,11 +294,12 @@ where
     }
 }
 
-impl<I, C, CS, S> ExtInt<I, C, WithClock<CS>, S>
+impl<I, C, CS, AK, S> ExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrc,
+    AK: AnyClock<Mode = WithClock<CS>>,
     S: SenseMode,
 {
     // Methods related to filtering and debouncing go here,
@@ -309,7 +310,7 @@ where
     pub fn enable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>>, N>,
-    ) -> FilteredExtInt<I, C, WithClock<CS>, S>
+    ) -> FilteredExtInt<I, C, AK, S>
     where
         N: Counter,
     {
@@ -347,7 +348,7 @@ where
     /// TODO
     type Pin: InterruptConfig;
     /// TODO
-    type Clock: Clock;
+    type Clock: AnyClock;
     /// TODO
     //type Filtering: Filtering;
     /// TODO
@@ -360,7 +361,7 @@ impl<I, C, K, S> AnyExtInt for ExtInt<I, C, K, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
     S: SenseMode,
 {
     /// TODO

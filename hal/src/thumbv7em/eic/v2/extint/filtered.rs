@@ -8,7 +8,7 @@ pub struct FilteredExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
     S: SenseMode,
 {
     pub extint: ExtInt<I, C, K, S>,
@@ -18,7 +18,7 @@ impl<I, C, K, S> FilteredExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: Clock,
+    K: AnyClock,
     S: SenseMode,
 {
     // Do not need access to the EIController here

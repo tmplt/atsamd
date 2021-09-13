@@ -8,7 +8,7 @@ use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
 use crate::gpio::v2::{self as gpio, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
-use crate::typelevel::{Is, Sealed};
+use crate::typelevel::{Is, NoneT, Sealed};
 
 pub mod eicontroller;
 pub mod extint;
@@ -328,15 +328,19 @@ pub struct WithClock<C: EIClkSrc> {
 impl<C: EIClkSrc> Sealed for WithClock<C> {}
 impl<C: EIClkSrc> Clock for WithClock<C> {}
 
+/// TODO
 pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
     type Mode: Clock;
+    type ClockSource: EIClkSrc;
 }
 
 /// TODO
 pub type SpecificClock<K> = <K as AnyClock>::Mode;
 
 impl AnyClock for NoClock {
+    /// TODO
     type Mode = NoClock;
+    type ClockSource = NoneT;
 }
 
 impl<CS> AnyClock for WithClock<CS>
@@ -344,6 +348,7 @@ where
     CS: EIClkSrc,
 {
     type Mode = WithClock<CS>;
+    type ClockSource = CS; 
 }
 
 impl AsRef<Self> for NoClock {
@@ -360,20 +365,14 @@ impl AsMut<Self> for NoClock {
     }
 }
 
-impl<CS> AsRef<Self> for WithClock<CS>
-where
-    CS: EIClkSrc,
-{
+impl<CS: EIClkSrc> AsRef<Self> for WithClock<CS> {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<CS> AsMut<Self> for WithClock<CS>
-where
-    CS: EIClkSrc,
-{
+impl<CS: EIClkSrc> AsMut<Self> for WithClock<CS> {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self
@@ -395,6 +394,13 @@ impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
 // Ultra-low power oscillator can be used instead
 impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
     /// TODO
+    const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
+}
+
+impl EIClkSrc for NoneT {
+    /// TODO
+    /// This is the default value at reset
+    /// This is a workaround to be able to extract ClockSource
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
 

@@ -17,17 +17,18 @@ use super::extint::*;
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
 /// TODO
-pub struct EIController<K: Clock>
+pub struct EIController<AK>
 where
-    K: Clock,
+    AK: AnyClock,
 {
     eic: crate::pac::EIC,
-    _mode: K,
+    _clockmode: PhantomData<AK>,
 }
 
-impl<CS> EIController<WithClock<CS>>
+impl<CS, AK> EIController<AK>
 where
     CS: EIClkSrc + Increment,
+    AK: AnyClock<Mode = WithClock<CS>>,
 {
     /// Create an EIC Controller with a clock source
     ///
@@ -50,7 +51,7 @@ where
             (
                 Enabled::new(Self {
                     eic,
-                    _mode: WithClock { _clock: PhantomData },
+                    _clockmode: PhantomData,
                 }),
                 Tokens::new(),
                 clock.inc(),
@@ -59,7 +60,10 @@ where
     }
 }
 
-impl EIController<NoClock> {
+impl<AK> EIController<AK>
+where
+    AK: AnyClock<Mode = NoClock>,
+{
     /// Create an EIC Controller without a clock source
     ///
     /// This limits the EIC functionality
@@ -83,7 +87,8 @@ impl EIController<NoClock> {
             (
                 Enabled::new(Self {
                     eic,
-                    _mode: NoClock {},
+                    //_clockmode: NoClock {},
+                    _clockmode: PhantomData,
                 }),
                 Tokens::new(),
             )
@@ -93,7 +98,7 @@ impl EIController<NoClock> {
 
 impl<K> Enabled<EIController<K>, U0>
 where
-    K: Clock,
+    K: AnyClock,
 {
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
@@ -105,7 +110,7 @@ where
 
 impl<K, N> Enabled<EIController<K>, N>
 where
-    K: Clock,
+    K: AnyClock,
     N: Counter,
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
@@ -128,6 +133,24 @@ where
         self.syncbusy_finalize();
     }
 }
+impl<AK> Enabled<EIController<AK>, U0>
+where
+    AK: AnyClock,
+{
+    /// Softare reset the EIC controller
+    ///
+    /// Will clear all registers and leave the controller disabled
+    /// #TODO, not verified
+    pub fn swrst(self) -> Enabled<EIController<AK>, U0>
+    where
+        AK: AnyClock<Mode = NoClock>,
+    {
+        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
+        self.syncbusy_swrst();
+
+        self
+    }
+}
 
 impl<CS> Enabled<EIController<WithClock<CS>>, U0>
 where
@@ -140,30 +163,12 @@ where
     {
         (self.0.eic, clock.dec())
     }
-
-    /// Softare reset the EIC controller
-    pub fn swrst(&self) {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        self.syncbusy_swrst();
-
-        // Set CKSEL to match the clock resource provided
-        self.0.eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
-    }
 }
 
 impl Enabled<EIController<NoClock>, U0> {
     /// Disable and destroy the EIC controller
     pub fn destroy(self, _tokens: Tokens) -> crate::pac::EIC {
         self.0.eic
-    }
-
-    /// Softare reset the EIC controller
-    pub fn swrst(&self) {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        self.syncbusy_swrst();
-
-        // Setup mode to async for all channels
-        self.0.eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
     }
 }
 
@@ -234,7 +239,7 @@ where
 
 impl<K, N> Enabled<EIController<K>, N>
 where
-    K: Clock,
+    K: AnyClock,
     N: Counter,
 {
     /// TODO
