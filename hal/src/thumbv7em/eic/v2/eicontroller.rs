@@ -25,9 +25,8 @@ where
     _clockmode: PhantomData<AK>,
 }
 
-impl<AK, CS> EIController<AK>
+impl<CS> EIController<WithClock<CS>>
 where
-    AK: AnyClock<Mode = WithClock<CS>>,
     CS: EIClkSrc + Increment,
 {
     /// Create an EIC Controller with a clock source
@@ -39,11 +38,8 @@ where
     /// Safe because you trade a singleton PAC struct for new singletons
     pub fn new(
         eic: crate::pac::EIC,
-        clock: CS, //) -> (Enabled<EIController<AK>, U0>, Tokens, CS::Inc)
-    ) -> (Enabled<EIController<WithClock<CS>>, U0>, Tokens, CS::Inc)
-    where
-        AK: AnyClock<Mode = WithClock<CS>>,
-    {
+        clock: CS,
+    ) -> (Enabled<EIController<WithClock<CS>>, U0>, Tokens, CS::Inc) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -51,13 +47,11 @@ where
         }
 
         // Set CKSEL to match the clock resource provided
-        //eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
-        eic.ctrla
-            .modify(|_, w| w.cksel().variant(AK::ClockSource::CKSEL));
+        eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
 
         unsafe {
             (
-                Enabled::new( EIController::<WithClock::<CS>> {
+                Enabled::new(Self {
                     eic,
                     _clockmode: PhantomData,
                 }),
@@ -68,10 +62,7 @@ where
     }
 }
 
-impl<AK> EIController<AK>
-where
-    AK: AnyClock<Mode = NoClock>,
-{
+impl EIController<NoClock> {
     /// Create an EIC Controller without a clock source
     ///
     /// This limits the EIC functionality
@@ -79,10 +70,7 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<NoClock>, U0>, Tokens)
-    where
-        AK: AnyClock<Mode = NoClock>,
-    {
+    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<NoClock>, U0>, Tokens) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -96,7 +84,7 @@ where
 
         unsafe {
             (
-                Enabled::new(EIController::<NoClock> {
+                Enabled::new(Self {
                     eic,
                     _clockmode: PhantomData,
                 }),
@@ -143,6 +131,7 @@ where
         self.syncbusy_finalize();
     }
 }
+
 impl<AK> Enabled<EIController<AK>, U0>
 where
     AK: AnyClock,
@@ -151,10 +140,7 @@ where
     ///
     /// Will clear all registers and leave the controller disabled
     /// #TODO, not verified
-    pub fn swrst(self) -> Enabled<EIController<AK>, U0>
-    where
-        AK: AnyClock<Mode = NoClock>,
-    {
+    pub fn swrst(self) -> Enabled<EIController<AK>, U0> {
         self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
         self.syncbusy_swrst();
 

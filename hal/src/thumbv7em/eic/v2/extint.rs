@@ -150,11 +150,12 @@ where
 {
     // Must have access to the EIController here
     /// TODO
-    pub fn set_sense_none<N>(
+    pub fn set_sense_none<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseNone>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::None);
@@ -167,11 +168,12 @@ where
         }
     }
     /// TODO
-    pub fn set_sense_high<N>(
+    pub fn set_sense_high<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseHigh>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::High);
@@ -184,11 +186,12 @@ where
         }
     }
     /// TODO
-    pub fn set_sense_low<N>(
+    pub fn set_sense_low<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseLow>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::Low);
@@ -201,11 +204,12 @@ where
         }
     }
     /// TODO
-    pub fn set_sense_rise<N>(
+    pub fn set_sense_rise<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseRise>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::Rise);
@@ -218,11 +222,12 @@ where
         }
     }
     /// TODO
-    pub fn set_sense_fall<N>(
+    pub fn set_sense_fall<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseFall>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::Fall);
@@ -235,11 +240,12 @@ where
         }
     }
     /// TODO
-    pub fn set_sense_both<N>(
+    pub fn set_sense_both<AK2, N>(
         self,
-        eic: &mut Enabled<EIController<AK>, N>,
+        eic: &mut Enabled<EIController<AK2>, N>,
     ) -> ExtInt<I, C, AK, SenseBoth>
     where
+        AK2: AnyClock,
         N: Counter,
     {
         eic.set_sense_mode::<I::EINum>(Sense::Both);
