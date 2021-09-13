@@ -43,6 +43,21 @@ where
         // generic over the EINum. Either way is fine.
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
+
+    /// TODO
+    pub fn disable_debouncing<N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<CS>>, N>,
+    ) -> ExtInt<I, C, WithClock<CS>, S>
+    where
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.disable_debouncing::<I::EINum>();
+        // Return the inner ExtInt<...>
+        self.extint
+    }
 }
 
 //impl<E> DebouncedExtInt<E> where E: AnyExtInt<SenseMode = SenseRise> {}

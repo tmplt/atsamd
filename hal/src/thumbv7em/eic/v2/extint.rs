@@ -103,16 +103,15 @@ where
 {
 }
 
-impl<I, C, K> ExtInt<I, C, WithClock<K>, SenseNone>
+impl<I, C, CS> ExtInt<I, C, WithClock<CS>, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
-    K: EIClkSrc,
+    CS: EIClkSrc,
 {
     /// Create initial synchronous ExtInt
     /// TODO
     pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
-        // Configure the ExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,
             pin,
@@ -130,6 +129,7 @@ where
     /// Create initial asynchronous ExtInt
     /// TODO
     pub(crate) fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+        // #TODO
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
         ExtInt {
             regs: token.regs,

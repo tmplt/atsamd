@@ -25,9 +25,9 @@ where
     _mode: K,
 }
 
-impl<K> EIController<WithClock<K>>
+impl<CS> EIController<WithClock<CS>>
 where
-    K: EIClkSrc + Increment,
+    CS: EIClkSrc + Increment,
 {
     /// Create an EIC Controller with a clock source
     ///
@@ -36,7 +36,7 @@ where
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(eic: crate::pac::EIC, clock: K) -> (Enabled<Self, U0>, Tokens, K::Inc) {
+    pub fn new(eic: crate::pac::EIC, clock: CS) -> (Enabled<Self, U0>, Tokens, CS::Inc) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -44,13 +44,13 @@ where
         }
 
         // Set CKSEL to match the clock resource provided
-        eic.ctrla.modify(|_, w| w.cksel().variant(K::CKSEL));
+        eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
 
         unsafe {
             (
                 Enabled::new(Self {
                     eic,
-                    _mode: WithClock { clock: PhantomData },
+                    _mode: WithClock { _clock: PhantomData },
                 }),
                 Tokens::new(),
                 clock.inc(),
@@ -91,9 +91,9 @@ impl EIController<NoClock> {
     }
 }
 
-impl<M> Enabled<EIController<M>, U0>
+impl<K> Enabled<EIController<K>, U0>
 where
-    M: Clock,
+    K: Clock,
 {
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
@@ -190,6 +190,14 @@ where
     // generic over the EINum. Either way is fine.
     /// TODO
     pub(super) fn enable_debouncing<E: EINum>(&mut self) {
+        self.0.eic.debouncen.modify(|r, w| unsafe {
+            let bits = r.debouncen().bits();
+            w.debouncen().bits(bits & 0 << E::NUM)
+        });
+    }
+
+    /// TODO
+    pub(super) fn disable_debouncing<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
             w.debouncen().bits(bits | E::MASK)

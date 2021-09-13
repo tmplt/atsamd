@@ -116,7 +116,6 @@ impl SenseMode for SenseLow {
     const SENSE: Sense = Sense::Low;
 }
 
-
 /// Valid SenseModes for Level Detection
 /// TODO
 pub trait LevelDetectMode: SenseMode {}
@@ -309,8 +308,8 @@ seq!(N in 00..16 {
 /// TODO
 pub trait Clock: Sealed {}
 
-/// AsyncMode only allows asynchronous edge detection
-pub struct NoClock;
+/// AsyncMode only allows asynchronous detection
+pub struct NoClock {}
 impl Sealed for NoClock {}
 impl Clock for NoClock {}
 
@@ -324,17 +323,62 @@ impl Clock for NoClock {}
 /// * One EXTINT uses debouncing
 pub struct WithClock<C: EIClkSrc> {
     /// Clock resource
-    #[allow(dead_code)]
-    clock: PhantomData<C>,
+    _clock: PhantomData<C>,
 }
 impl<C: EIClkSrc> Sealed for WithClock<C> {}
 impl<C: EIClkSrc> Clock for WithClock<C> {}
 
-pub trait AnyClock: Sealed + Is<Type = SpecificClock> {
+pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
     type Mode: Clock;
 }
 
-pub type SpecificClock = dyn Clock;
+/// TODO
+pub type SpecificClock<K> = <K as AnyClock>::Mode;
+
+impl AnyClock for NoClock {
+    type Mode = NoClock;
+}
+
+impl<CS> AnyClock for WithClock<CS>
+where
+    CS: EIClkSrc,
+{
+    type Mode = WithClock<CS>;
+}
+
+impl AsRef<Self> for NoClock {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl AsMut<Self> for NoClock {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<CS> AsRef<Self> for WithClock<CS>
+where
+    CS: EIClkSrc,
+{
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<CS> AsMut<Self> for WithClock<CS>
+where
+    CS: EIClkSrc,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
 
 // EI clock source for synchronous detection modes
 /// TODO
