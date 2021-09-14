@@ -170,11 +170,11 @@ pub trait EINum: Sealed {
     const NUM: u8;
     const MASK: u16 = 1 << Self::NUM;
     // Filten described by arithmetic series
-    // 7+(n-1)*4
-    const FILTEN: u32 = 1 << (7 + (Self::NUM - 1) * 4);
+    // 3+(n)*4
+    const FILTEN: u32 = 1 << (3 + Self::NUM * 4);
     // Sense described by the arithmetic series
-    // 2+(n-1)*4
-    const SENSE: u32 = 111 << (2 + (Self::NUM - 1) * 4);
+    // (n)*4
+    const SENSE: u32 = 111 << (Self::NUM * 4);
     // Possibly other constants
 }
 

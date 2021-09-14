@@ -150,6 +150,27 @@ where
 {
     // Must have access to the EIController here
     /// TODO
+    /// Not functional yet
+    pub fn set_sense_mode<AK2, S2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+        sense: Sense,
+    ) -> ExtInt<I, C, AK, S2>
+    where
+        AK2: AnyClock,
+        S2: SenseMode,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(sense);
+
+        ExtInt {
+            regs: self.regs,
+            pin: self.pin,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+    /// TODO
     pub fn set_sense_none<AK2, N>(
         self,
         eic: &mut Enabled<EIController<AK2>, N>,
@@ -286,6 +307,9 @@ where
     // and that SenseMode are one of: Rise, Fall or Both
 
     /// TODO
+    ///
+    /// ExtInt sense mode must be either [`Sense::Rise`], [`Sense::Fall`]
+    /// or [`Sense::Both`]
     pub fn enable_debouncing<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>>, N>,
@@ -356,10 +380,6 @@ where
     /// TODO
     type Clock: AnyClock;
     /// TODO
-    //type Filtering: Filtering;
-    /// TODO
-    //type Debouncing: Debouncing;
-    /// TODO
     type SenseMode: SenseMode;
 }
 
@@ -377,18 +397,12 @@ where
     /// TODO
     type Clock = K;
     /// TODO
-    //type Filtering = F;
-    /// TODO
-    //type Debouncing = B;
-    /// TODO
     type SenseMode = S;
 }
 pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
     <E as AnyExtInt>::Pin,
     <E as AnyExtInt>::Clock,
-    //<E as AnyExtInt>::Filtering,
-    //<E as AnyExtInt>::Debouncing,
     <E as AnyExtInt>::SenseMode,
 >;
 
@@ -405,18 +419,3 @@ impl<E: AnyExtInt> AsMut<E> for SpecificExtInt<E> {
         unsafe { transmute(self) }
     }
 }
-
-/*
-impl<E: AnyExtInt> From<E> for SpecificExtInt<E> {
-    #[inline]
-    fn from(&self) -> Self {
-        SpecificExtInt {
-            regs: Registers::<self::Num>,
-            pin: self::Pin,
-            filtering: self::Filtering,
-            debouncing: self::Debouncing,
-            sensemode: self::SenseMode,
-        }
-    }
-}
-*/

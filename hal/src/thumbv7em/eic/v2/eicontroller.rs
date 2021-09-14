@@ -132,21 +132,36 @@ where
     }
 }
 
-impl<AK> Enabled<EIController<AK>, U0>
+/*
+ * Currently broken
+ *
+impl<CS> Enabled<EIController<WithClock<CS>>, U0>
 where
-    AK: AnyClock,
+    CS: EIClkSrc,
 {
     /// Softare reset the EIC controller
     ///
     /// Will clear all registers and leave the controller disabled
-    /// #TODO, not verified
-    pub fn swrst(self) -> Enabled<EIController<AK>, U0> {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        self.syncbusy_swrst();
-
-        self
+    /// Return the same kind that was configured previously
+    /// #TODO, not verified, broken, disable for now
+    pub fn swrst(self) -> Enabled<EIController<WithClock<CS>>, U0> {
+        let (controller, _, _) = EIController::new(self.0.eic, self.0._clockmode);
+        controller
     }
 }
+
+impl Enabled<EIController<NoClock>, U0> {
+    /// Softare reset the EIC controller
+    ///
+    /// Will clear all registers and leave the controller disabled
+    /// Return the same kind that was configured previously
+    /// #TODO, not verified, broken, disable for now
+    pub fn swrst(self) -> Enabled<EIController<NoClock>, U0> {
+        let (controller, _) = EIController::new_only_async(self.0.eic);
+        controller
+    }
+}
+*/
 
 impl<CS> Enabled<EIController<WithClock<CS>>, U0>
 where
