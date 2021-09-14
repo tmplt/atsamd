@@ -29,7 +29,7 @@ where
     }
 
     /// TODO
-    pub fn disable_debouncing<N>(
+    pub fn disable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
     ) -> ExtInt<I, C, AK, S>
@@ -38,7 +38,7 @@ where
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
-        eic.disable_debouncing::<I::EINum>();
+        eic.disable_filtering::<I::EINum>();
         // Return the inner ExtInt<...>
         self.extint
     }

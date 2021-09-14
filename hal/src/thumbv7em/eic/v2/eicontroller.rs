@@ -244,7 +244,18 @@ where
             0..=7 => 0,
             _ => 1,
         };
+        // Set the FILTEN bit
         self.0.eic.config[index].write(|w| unsafe { w.bits(E::FILTEN) });
+    }
+
+    /// TODO
+    pub(super) fn disable_filtering<E: EINum>(&mut self) {
+        let index = match E::NUM {
+            0..=7 => 0,
+            _ => 1,
+        };
+        // Clear the FILTEN bit
+        self.0.eic.config[index].write(|w| unsafe { w.bits(0 << E::FILTEN) });
     }
 }
 
