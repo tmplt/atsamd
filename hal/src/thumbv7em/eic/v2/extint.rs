@@ -128,14 +128,19 @@ where
 {
     /// Create initial asynchronous ExtInt
     /// TODO
-    pub(crate) fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
+    pub(crate) fn new_async(
+        token: Token<I::EINum>,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> AsyncExtInt<I, C, NoClock, SenseNone> {
         // #TODO
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
-        ExtInt {
-            regs: token.regs,
-            pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
+        AsyncExtInt {
+            extint: ExtInt {
+                regs: token.regs,
+                pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
         }
     }
 }
@@ -287,20 +292,12 @@ where
     }
 }
 
-// Methods for any state of ExtInt
-impl<I, C, K> ExtInt<I, C, K, SenseNone>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    K: AnyClock,
-{
-}
-
-impl<I, C, CS, S> ExtInt<I, C, WithClock<CS>, S>
+impl<I, C, CS, AK, S> ExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrc,
+    AK: AnyClock<Mode = WithClock<CS>>,
     S: DebounceMode,
 {
     // Methods related to debouncing go here since they require a clock
@@ -313,7 +310,7 @@ where
     pub fn enable_debouncing<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>>, N>,
-    ) -> DebouncedExtInt<I, C, CS, S>
+    ) -> DebouncedExtInt<I, C, AK, S>
     where
         N: Counter,
     {

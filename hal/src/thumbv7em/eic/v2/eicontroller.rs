@@ -258,7 +258,7 @@ where
         &self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, NoClock, SenseNone>
+    ) -> AsyncExtInt<I, C, NoClock, SenseNone>
     where
         I: GetEINum,
         C: InterruptConfig,

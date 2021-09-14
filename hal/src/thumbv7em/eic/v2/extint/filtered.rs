@@ -2,7 +2,7 @@ use crate::gpio::v2::InterruptConfig;
 
 use crate::eic::v2::*;
 
-use super::{AnyExtInt, ExtInt};
+use super::ExtInt;
 
 pub struct FilteredExtInt<I, C, K, S>
 where
@@ -26,6 +26,21 @@ where
     /// TODO
     pub fn pin_state(&self) -> bool {
         self.extint.pin_state()
+    }
+
+    /// TODO
+    pub fn disable_debouncing<N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+    ) -> ExtInt<I, C, AK, S>
+    where
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.disable_debouncing::<I::EINum>();
+        // Return the inner ExtInt<...>
+        self.extint
     }
 
     /// TODO

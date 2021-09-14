@@ -5,23 +5,23 @@ use crate::gpio::v2::InterruptConfig;
 use super::ExtInt;
 
 //pub struct DebouncedExtInt<E>
-pub struct DebouncedExtInt<I, C, CS, S>
+pub struct DebouncedExtInt<I, C, AK, S>
 where
     //E: AnyExtInt,
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    AK: AnyClock,
     S: SenseMode,
 {
     //pub extint: E,
-    pub extint: ExtInt<I, C, WithClock<CS>, S>,
+    pub extint: ExtInt<I, C, AK, S>,
 }
 
-impl<I, C, CS, S> DebouncedExtInt<I, C, CS, S>
+impl<I, C, AK, S> DebouncedExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    AK: AnyClock,
     S: SenseMode,
 {
     // Do not need access to the EIController here
@@ -32,23 +32,10 @@ where
     }
 
     /// TODO
-    pub fn set_debouncer_settings<N>(
-        &self,
-        eic: &mut Enabled<EIController<WithClock<CS>>, N>,
-        settings: &DebouncerSettings,
-    ) where
-        N: Counter,
-    {
-        // Could pass the MASK directly instead of making this function
-        // generic over the EINum. Either way is fine.
-        eic.set_debouncer_settings::<I::EINum>(settings);
-    }
-
-    /// TODO
     pub fn disable_debouncing<N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<CS>>, N>,
-    ) -> ExtInt<I, C, WithClock<CS>, S>
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+    ) -> ExtInt<I, C, AK, S>
     where
         N: Counter,
     {
@@ -58,8 +45,18 @@ where
         // Return the inner ExtInt<...>
         self.extint
     }
+
+    /// TODO
+    pub fn set_debouncer_settings<N>(
+        &self,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+        settings: &DebouncerSettings,
+    ) where
+        N: Counter,
+    {
+        // Could pass the MASK directly instead of making this function
+        // generic over the EINum. Either way is fine.
+        eic.set_debouncer_settings::<I::EINum>(settings);
+    }
+
 }
-
-//impl<E> DebouncedExtInt<E> where E: AnyExtInt<SenseMode = SenseRise> {}
-
-//impl<E> DebouncedExtInt<E> where E: AnyExtInt {}

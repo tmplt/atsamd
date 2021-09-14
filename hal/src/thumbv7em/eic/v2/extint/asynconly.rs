@@ -1,61 +1,131 @@
-/*
-use core::marker::PhantomData;
-
-use crate::clock::types::{Counter, Enabled};
-use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
+use crate::gpio::v2::InterruptConfig;
 
 use crate::eic::v2::*;
 
-pub struct AsyncExtInt<I, C, F, B, S>
+use super::ExtInt;
+
+pub struct AsyncExtInt<I, C, K, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    F: FilteringT,
-    B: DebouncingT,
+    K: AnyClock,
     S: SenseMode,
 {
-    #[allow(dead_code)]
-    regs: Registers<I::EINum>,
-    #[allow(dead_code)]
-    pin: Pin<I, Interrupt<C>>,
-    filtering: PhantomData<F>,
-    debouncing: PhantomData<B>,
-    sensemode: PhantomData<S>,
+    pub extint: ExtInt<I, C, K, S>,
 }
 
-impl<I, C> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, SenseNone>
+impl<I, C, AK, S> AsyncExtInt<I, C, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
 {
+    // Do not need access to the EIController here
+    /// Read the pin state of the ExtInt
     /// TODO
-    pub(crate) fn new_async(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
-        // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
+    pub fn pin_state(&self) -> bool {
+        self.extint.pin_state()
+    }
+
+    /// TODO
+    pub fn set_sense_high<AK2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+    ) -> AsyncExtInt<I, C, AK, SenseHigh>
+    where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(Sense::High);
+
         AsyncExtInt {
-            regs: token.regs,
-            pin,
-            filtering: PhantomData,
-            debouncing: PhantomData,
-            sensemode: PhantomData,
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
+        }
+    }
+    /// TODO
+    pub fn set_sense_low<AK2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+    ) -> AsyncExtInt<I, C, AK, SenseLow>
+    where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(Sense::Low);
+
+        AsyncExtInt {
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
+        }
+    }
+    /// TODO
+    pub fn set_sense_rise<AK2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+    ) -> AsyncExtInt<I, C, AK, SenseRise>
+    where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(Sense::Rise);
+
+        AsyncExtInt {
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
+        }
+    }
+    /// TODO
+    pub fn set_sense_fall<AK2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+    ) -> AsyncExtInt<I, C, AK, SenseFall>
+    where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(Sense::Fall);
+
+        AsyncExtInt {
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
+        }
+    }
+    /// TODO
+    pub fn set_sense_both<AK2, N>(
+        self,
+        eic: &mut Enabled<EIController<AK2>, N>,
+    ) -> AsyncExtInt<I, C, AK, SenseBoth>
+    where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_sense_mode::<I::EINum>(Sense::Both);
+
+        AsyncExtInt {
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
         }
     }
 }
-
-impl<I, C, S> AsyncExtInt<I, C, FilteringDisabled, DebouncingDisabled, S>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    S: SenseMode,
-{
-    /// TODO
-    pub fn set_sense<K, N>(
-        &self,
-        eic: &mut Enabled<EIController<NoClock>, N>,
-        sense: Sense,
-    ) where
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(sense);
-    }
-}
-*/
