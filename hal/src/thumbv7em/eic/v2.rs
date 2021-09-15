@@ -168,17 +168,18 @@ pub struct DebouncerSettings {
 /// TODO
 pub trait EINum: Sealed {
     const NUM: u8;
-    const OFFSET: usize = match Self::NUM {
+    const OFFSET: u8 = match Self::NUM {
         0..=7 => 0,
         8.. => 1,
     };
     const MASK: u16 = 1 << Self::NUM;
     // Filten described by arithmetic series
     // 3+(n)*4
-    const FILTEN: u32 = 1 << (3 + Self::NUM * 4);
+    const FILTEN: u8 = 3 + Self::NUM * 4;
     // Sense described by the arithmetic series
     // (n)*4
-    const SENSE: u32 = 0b111 << (Self::NUM * 4);
+    const SENSELSB: u8 = Self::NUM * 4;
+    const SENSEMSB: u8 = Self::NUM * 4 + 3;
     // Possibly other constants
 }
 

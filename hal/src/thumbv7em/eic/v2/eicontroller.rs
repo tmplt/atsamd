@@ -121,15 +121,12 @@ where
     N: Counter,
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
-        let index = match E::NUM {
-            0..=7 => 0,
-            // Requires rust 1.55, otherwise use _
-            8.. => 1,
-            //_ => 1,
-        };
-        //self.0.eic.config[index].write(|w| unsafe { w.bits(E::SENSE & sense as u32)
-        // });
-        self.0.eic.config[index].write(|w| unsafe { w.bits(E::SENSE & sense as u32) });
+        let index: usize = E::OFFSET.into();
+        // Set the SENSE bits in the configuration state
+        self.0.config[index].set_bit_range(E::SENSEMSB.into(), E::SENSELSB.into(), sense as u32);
+        // Write the configuration state to hardware
+        self.0.eic.config[index]
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 
     /// Enabling the EIC controller needs to be synchronised
@@ -196,35 +193,6 @@ impl Enabled<EIController<NoClock>, U0> {
     }
 }
 
-macro_rules! set_filten {
-    ($self:ident, $index:expr, $number:expr) => {
-        paste! {
-            $self.0.eic.config[$index].write(|w| w.[<filten $number>]().bit(
-                ($self.0.config.$index).[<get_filten $number>]() != 0
-                    ))
-        }
-    };
-}
-/*
- 0 =>{set_filten!(self, 0, 0)},
- 1 =>{set_filten!(self, 0, 1)},
- 2 =>{set_filten!(self, 0, 2)},
- 3 =>{set_filten!(self, 0, 3)},
- 4 =>{set_filten!(self, 0, 4)},
- 5 =>{set_filten!(self, 0, 5)},
- 6 =>{set_filten!(self, 0, 6)},
- 7 =>{set_filten!(self, 0, 7)},
- 8 =>{set_filten!(self, 1, 0)},
- 9 =>{set_filten!(self, 1, 1)},
-10 => {set_filten!(self, 1, 2)},
-11 => {set_filten!(self, 1, 3)},
-12 => {set_filten!(self, 1, 4)},
-13 => {set_filten!(self, 1, 5)},
-14 => {set_filten!(self, 1, 6)},
-15 => {set_filten!(self, 1, 7)},
-_ => unimplemented!(),
-*/
-
 impl<CS, N> Enabled<EIController<WithClock<CS>>, N>
 where
     CS: EIClkSrc,
@@ -283,39 +251,22 @@ where
     // Private function that should be accessed through the ExtInt
     /// TODO
     pub(super) fn enable_filtering<E: EINum>(&mut self) {
+        let index: usize = E::OFFSET.into();
         // Set the FILTEN bit in the configuration state
-        match E::NUM {
-            0 => (self.0.config[0]).set_filten0(1),
-            1 => (self.0.config[0]).set_filten1(1),
-            2 => (self.0.config[0]).set_filten2(1),
-            3 => (self.0.config[0]).set_filten3(1),
-            4 => (self.0.config[0]).set_filten4(1),
-            5 => (self.0.config[0]).set_filten5(1),
-            6 => (self.0.config[0]).set_filten6(1),
-            7 => (self.0.config[0]).set_filten7(1),
-            8 => (self.0.config[1]).set_filten0(1),
-            9 => (self.0.config[1]).set_filten1(1),
-            10 => (self.0.config[1]).set_filten2(1),
-            11 => (self.0.config[1]).set_filten3(1),
-            12 => (self.0.config[1]).set_filten4(1),
-            13 => (self.0.config[1]).set_filten5(1),
-            14 => (self.0.config[1]).set_filten6(1),
-            15 => (self.0.config[1]).set_filten7(1),
-            _ => unimplemented!(),
-        }
+        self.0.config[index].set_bit(E::NUM.into(), true);
         // Write the configuration state to hardware
-        self.0.eic.config[E::OFFSET]
-            .write(|w| unsafe { w.bits(self.0.config[E::OFFSET].bit_range(0, 31)) });
+        self.0.eic.config[index]
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(0, 31)) });
     }
 
     /// TODO
     pub(super) fn disable_filtering<E: EINum>(&mut self) {
-        let index = match E::NUM {
-            0..=7 => 0,
-            _ => 1,
-        };
-        // Clear the FILTEN bit
-        self.0.eic.config[index].write(|w| unsafe { w.bits(0 << E::FILTEN) });
+        let index: usize = E::OFFSET.into();
+        // Set the FILTEN bit in the configuration state
+        self.0.config[index].set_bit(E::NUM.into(), false);
+        // Write the configuration state to hardware
+        self.0.eic.config[index]
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(0, 31)) });
     }
 }
 
