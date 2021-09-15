@@ -122,11 +122,13 @@ where
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
         let index: usize = E::OFFSET.into();
+        let msb: usize = E::SENSEMSB.into();
+        let lsb: usize = E::SENSELSB.into();
         // Set the SENSE bits in the configuration state
-        self.0.config[index].set_bit_range(E::SENSEMSB.into(), E::SENSELSB.into(), sense as u32);
+        self.0.config[index].set_bit_range(msb, lsb, sense as u8);
         // Write the configuration state to hardware
         self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(msb, lsb)) });
     }
 
     /// Enabling the EIC controller needs to be synchronised
@@ -226,8 +228,8 @@ where
     pub(super) fn disable_debouncing<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
-            // Cler specific bit
-            w.debouncen().bits(bits & 0 << E::NUM)
+            // Clear specific bit
+            w.debouncen().bits(bits & !(E::MASK))
         });
     }
 
@@ -252,21 +254,25 @@ where
     /// TODO
     pub(super) fn enable_filtering<E: EINum>(&mut self) {
         let index: usize = E::OFFSET.into();
+        let bitnum: usize = E::FILTEN.into();
+
         // Set the FILTEN bit in the configuration state
-        self.0.config[index].set_bit(E::NUM.into(), true);
+        self.0.config[index].set_bit(bitnum, true);
         // Write the configuration state to hardware
         self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(0, 31)) });
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 
     /// TODO
     pub(super) fn disable_filtering<E: EINum>(&mut self) {
         let index: usize = E::OFFSET.into();
+        let bitnum: usize = E::FILTEN.into();
+
         // Set the FILTEN bit in the configuration state
-        self.0.config[index].set_bit(E::NUM.into(), false);
+        self.0.config[index].set_bit(bitnum, false);
         // Write the configuration state to hardware
         self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(0, 31)) });
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 }
 

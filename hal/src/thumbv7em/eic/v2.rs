@@ -179,7 +179,7 @@ pub trait EINum: Sealed {
     // Sense described by the arithmetic series
     // (n)*4
     const SENSELSB: u8 = Self::NUM * 4;
-    const SENSEMSB: u8 = Self::NUM * 4 + 3;
+    const SENSEMSB: u8 = Self::NUM * 4 + 2;
     // Possibly other constants
 }
 
