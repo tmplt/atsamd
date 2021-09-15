@@ -14,6 +14,27 @@ where
     pub extint: ExtInt<I, C, K, S>,
 }
 
+macro_rules! set_sense {
+    ($self:ident, $sense:ident) => {
+        paste! {
+            /// TODO Set FilteredExtInt Sense to [<$sense>]
+            pub fn [<set_sense_$sense:lower>](self) -> FilteredExtInt<I, C, AK, [<Sense$sense>]>
+            {
+                self.extint.regs.set_sense_mode(Sense::$sense);
+
+                FilteredExtInt {
+                    extint: ExtInt {
+                        regs: self.extint.regs,
+                        pin: self.extint.pin,
+                        clockmode: PhantomData,
+                        sensemode: PhantomData,
+                    }
+                }
+            }
+        }
+    };
+}
+
 impl<I, C, AK, S> FilteredExtInt<I, C, AK, S>
 where
     I: GetEINum,
@@ -43,104 +64,11 @@ where
         self.extint
     }
 
-    /// TODO
-    pub fn set_sense_high<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> FilteredExtInt<I, C, AK, SenseHigh>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::High);
+    set_sense! {self, None}
+    set_sense! {self, High}
+    set_sense! {self, Low}
+    set_sense! {self, Both}
+    set_sense! {self, Rise}
+    set_sense! {self, Fall}
 
-        FilteredExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
-    /// TODO
-    pub fn set_sense_low<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> FilteredExtInt<I, C, AK, SenseLow>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Low);
-
-        FilteredExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
-    /// TODO
-    pub fn set_sense_rise<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> FilteredExtInt<I, C, AK, SenseRise>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Rise);
-
-        FilteredExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
-    /// TODO
-    pub fn set_sense_fall<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> FilteredExtInt<I, C, AK, SenseFall>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Fall);
-
-        FilteredExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
-    /// TODO
-    pub fn set_sense_both<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> FilteredExtInt<I, C, AK, SenseBoth>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Both);
-
-        FilteredExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
 }

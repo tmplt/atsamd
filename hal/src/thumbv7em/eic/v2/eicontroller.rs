@@ -115,20 +115,23 @@ where
     }
 }
 
+
 impl<K, N> Enabled<EIController<K>, N>
 where
     K: AnyClock,
     N: Counter,
 {
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
+        //let einum: usize = E::NUM.into();
         let index: usize = E::OFFSET.into();
         let msb: usize = E::SENSEMSB.into();
         let lsb: usize = E::SENSELSB.into();
         // Set the SENSE bits in the configuration state
         self.0.config[index].set_bit_range(msb, lsb, sense as u8);
         // Write the configuration state to hardware
+        //set_sense!(self, index, msb, lsb, einum);
         self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(msb, lsb)) });
+            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 
     /// Enabling the EIC controller needs to be synchronised

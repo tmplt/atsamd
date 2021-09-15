@@ -17,61 +17,6 @@ pub use debounced::*;
 pub use filtered::*;
 
 //==============================================================================
-// FilteredExtInt
-//==============================================================================
-/*
-pub struct FilteredExtInt<E>
-where
-    E: AnyExtInt,
-{
-    extint: E,
-}
-
-impl<E> FilteredExtInt<E>
-where
-    E: AnyExtInt<Filtering = FilteringEnabled, Debouncing = DebouncingDisabled>,
-{
-    pub fn test(&self) {}
-}
-
-pub struct DebouncedExtInt<E>
-where
-    E: AnyExtInt,
-{
-    extint: ExtInt<
-        <E as AnyExtInt>::Num,
-        <E as AnyExtInt>::Pin,
-        WithClock<<E as AnyExtInt>::Clock>,
-        FilteringDisabled,
-        DebouncingEnabled,
-        <E as AnyExtInt>::SenseMode,
-    >,
-}
-impl<E> DebouncedExtInt<E>
-where
-    E: AnyExtInt<Filtering = FilteringDisabled, Debouncing = DebouncingEnabled>,
-{
-    // Do not need access to the EIController here
-    /// Read tf0138040.dnghe pin state of the ExtInt
-    /// TODO
-    //pub fn pin_state(&self) -> bool {
-    //self.extint.regs.pin_state()
-    //self.extint.set_sense(
-    //}
-
-    /// Set the sense mode
-    /// TODOf0138040.dng
-    pub fn set_sense<K, N>(&self, eic: &mut Enabled<EIController<WithClock<K>>, N>, sense: Sense)
-    where
-        K: EIClkSrc,
-        N: Counter,
-    {
-        self.extint.set_sense(sense);
-    }
-}
-*/
-
-//==============================================================================
 // ExtInt
 //==============================================================================
 
@@ -145,6 +90,32 @@ where
     }
 }
 
+macro_rules! set_sense {
+    ($self:ident, $sense:ident) => {
+        paste! {
+            /// TODO Set ExtInt Sense to [<$sense>]
+            pub fn [<set_sense_$sense:lower>]<AK2, N>(
+                self,
+                // Used to enforce having access to EIController
+                _eic: &mut Enabled<EIController<AK2>, N>,
+                ) -> ExtInt<I, C, AK, [<Sense$sense>]>
+                where
+                    AK2: AnyClock,
+                    N: Counter,
+            {
+                self.regs.set_sense_mode(Sense::$sense);
+
+                ExtInt {
+                    regs: self.regs,
+                    pin: self.pin,
+                    clockmode: PhantomData,
+                    sensemode: PhantomData,
+                }
+            }
+        }
+    };
+}
+
 // Methods for any state of ExtInt
 impl<I, C, AK, S> ExtInt<I, C, AK, S>
 where
@@ -154,141 +125,53 @@ where
     S: SenseMode,
 {
     // Must have access to the EIController here
-    /// TODO
-    /// Not functional yet
-    pub fn set_sense_mode<AK2, S2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-        sense: Sense,
-    ) -> ExtInt<I, C, AK, S2>
-    where
-        AK2: AnyClock,
-        S2: SenseMode,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(sense);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_none<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseNone>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::None);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_high<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseHigh>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::High);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_low<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseLow>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Low);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_rise<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseRise>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Rise);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_fall<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseFall>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Fall);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-    /// TODO
-    pub fn set_sense_both<AK2, N>(
-        self,
-        eic: &mut Enabled<EIController<AK2>, N>,
-    ) -> ExtInt<I, C, AK, SenseBoth>
-    where
-        AK2: AnyClock,
-        N: Counter,
-    {
-        eic.set_sense_mode::<I::EINum>(Sense::Both);
-
-        ExtInt {
-            regs: self.regs,
-            pin: self.pin,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
 
     // Do not need access to the EIController here
+
+    /// TODO
+    pub fn set_sense_mode<S2>(self, sense: Sense) -> ExtInt<I, C, AK, S2>
+    where
+        S2: SenseMode,
+    {
+        self.regs.set_sense_mode(sense);
+
+        ExtInt {
+            regs: self.regs,
+            pin: self.pin,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+    set_sense! {self, None}
+    set_sense! {self, High}
+    set_sense! {self, Low}
+    set_sense! {self, Both}
+    set_sense! {self, Rise}
+    set_sense! {self, Fall}
+
     /// Read the pin state of the ExtInt
     /// TODO
     pub fn pin_state(&self) -> bool {
         self.regs.pin_state()
+    }
+
+    /// TODO
+    pub fn enable_interrupt(&self) {
+        self.regs.enable_interrupt();
+    }
+
+    /// TODO
+    pub fn disable_interrupt(&self) {
+        self.regs.disable_interrupt();
+    }
+
+    /// TODO
+    pub fn get_interrupt_status(&self) -> bool {
+        self.regs.get_interrupt_status()
+    }
+    /// TODO
+    pub fn clear_interrupt_status(&self) {
+        self.regs.clear_interrupt_status();
     }
 }
 

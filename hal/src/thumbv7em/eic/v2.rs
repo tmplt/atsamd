@@ -196,6 +196,27 @@ seq!(N in 00..16 {
 // Registers
 //==============================================================================
 
+macro_rules! set_sense_mode_help {
+    ($w:ident, $number:expr, $sense:ident, helper) => {
+        paste! {
+            $w.[<sense$number>]().bits($sense as u8)
+        }
+    };
+    ($w:ident, $number:expr, $sense:ident) => {
+        match $number {
+            0 => set_sense_mode_help!($w, 0, $sense, helper),
+            1 => set_sense_mode_help!($w, 1, $sense, helper),
+            2 => set_sense_mode_help!($w, 2, $sense, helper),
+            3 => set_sense_mode_help!($w, 3, $sense, helper),
+            4 => set_sense_mode_help!($w, 4, $sense, helper),
+            5 => set_sense_mode_help!($w, 5, $sense, helper),
+            6 => set_sense_mode_help!($w, 6, $sense, helper),
+            7 => set_sense_mode_help!($w, 7, $sense, helper),
+            _ => panic!(),
+        }
+    };
+}
+
 // Private struct that provides access to the EIC registers from
 // the ExtInt types. We must be careful about memory safety here
 /// TODO
@@ -222,6 +243,37 @@ impl<E: EINum> Registers<E> {
     fn pin_state(&self) -> bool {
         let state = self.eic().pinstate.read().pinstate().bits();
         (state & E::MASK) != 0
+    }
+
+    /// TODO
+    fn enable_interrupt(&self) {
+        self.eic()
+            .intenset
+            .write(|w| unsafe { w.bits(E::MASK as u32) });
+    }
+
+    /// TODO
+    fn disable_interrupt(&self) {
+        self.eic()
+            .intenclr
+            .write(|w| unsafe { w.bits(E::MASK as u32) });
+    }
+
+    /// TODO
+    fn get_interrupt_status(&self) -> bool {
+        let state = self.eic().intflag.read().extint().bits();
+        (state & E::MASK) != 0
+    }
+    fn clear_interrupt_status(&self) {
+        self.eic()
+            .intflag
+            .write(|w| unsafe { w.bits(E::MASK as u32) });
+    }
+
+    fn set_sense_mode(&self, sense: Sense) {
+        let index: usize = E::OFFSET.into();
+        let number: usize = E::NUM.into();
+        self.eic().config[index].write(|w| unsafe { set_sense_mode_help!(w, number, sense) });
     }
 
     // Can't add methods that access registers that share state
