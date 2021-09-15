@@ -266,24 +266,26 @@ where
     // Private function that should be accessed through the ExtInt
     /// TODO
     pub(super) fn enable_filtering<E: EINum>(&mut self) {
-        // Set the FILTEN bit
+        // Set the FILTEN bit in the configuration state
+
+        // Write the configuration state to hardware
         match E::NUM {
-            0 => set_filten!(self, 0, 0),
-            1 => set_filten!(self, 0, 1),
-            2 => set_filten!(self, 0, 2),
-            3 => set_filten!(self, 0, 3),
-            4 => set_filten!(self, 0, 4),
-            5 => set_filten!(self, 0, 5),
-            6 => set_filten!(self, 0, 6),
-            7 => set_filten!(self, 0, 7),
-            8 => set_filten!(self, 1, 0),
-            9 => set_filten!(self, 1, 1),
-            10 => set_filten!(self, 1, 2),
-            11 => set_filten!(self, 1, 3),
-            12 => set_filten!(self, 1, 4),
-            13 => set_filten!(self, 1, 5),
-            14 => set_filten!(self, 1, 6),
-            15 => set_filten!(self, 1, 7),
+            0 =>{set_filten!(self, 0, 0)},
+            1 =>{set_filten!(self, 0, 1)},
+            2 =>{set_filten!(self, 0, 2)},
+            3 =>{set_filten!(self, 0, 3)},
+            4 =>{set_filten!(self, 0, 4)},
+            5 =>{set_filten!(self, 0, 5)},
+            6 =>{set_filten!(self, 0, 6)},
+            7 =>{set_filten!(self, 0, 7)},
+            8 =>{set_filten!(self, 1, 0)},
+            9 =>{set_filten!(self, 1, 1)},
+            10 => {set_filten!(self, 1, 2)},
+            11 => {set_filten!(self, 1, 3)},
+            12 => {set_filten!(self, 1, 4)},
+            13 => {set_filten!(self, 1, 5)},
+            14 => {set_filten!(self, 1, 6)},
+            15 => {set_filten!(self, 1, 7)},
             _ => unimplemented!(),
         }
     }

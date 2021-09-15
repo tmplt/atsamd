@@ -58,5 +58,4 @@ where
         // generic over the EINum. Either way is fine.
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
-
 }
