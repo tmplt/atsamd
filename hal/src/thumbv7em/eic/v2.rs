@@ -168,6 +168,10 @@ pub struct DebouncerSettings {
 /// TODO
 pub trait EINum: Sealed {
     const NUM: u8;
+    const OFFSET: usize = match Self::NUM {
+        0..=7 => 0,
+        8.. => 1,
+    };
     const MASK: u16 = 1 << Self::NUM;
     // Filten described by arithmetic series
     // 3+(n)*4
