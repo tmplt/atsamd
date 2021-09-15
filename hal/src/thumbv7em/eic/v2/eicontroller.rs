@@ -22,6 +22,9 @@ where
     AK: AnyClock,
 {
     eic: crate::pac::EIC,
+    // Config consists of two 32-bit registers with the same layout
+    // config.0 covers [`EInum`] 0 to 7, config.1 [`EInum`] 8 to 15
+    config: (EIConfigReg, EIConfigReg),
     _clockmode: PhantomData<AK>,
 }
 
@@ -49,10 +52,14 @@ where
         // Set CKSEL to match the clock resource provided
         eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
 
+        // Create the config registers, matching reset state
+        let config0 = EIConfigReg(0);
+        let config1 = EIConfigReg(0);
         unsafe {
             (
                 Enabled::new(Self {
                     eic,
+                    config: (config0, config1),
                     _clockmode: PhantomData,
                 }),
                 Tokens::new(),
@@ -81,11 +88,15 @@ impl EIController<NoClock> {
         eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
 
         // Does not use or need any external clock, `CKSEL` is ignored
+        // Create the config registers, matching reset state
+        let config0 = EIConfigReg(0);
+        let config1 = EIConfigReg(0);
 
         unsafe {
             (
                 Enabled::new(Self {
                     eic,
+                    config: (config0, config1),
                     _clockmode: PhantomData,
                 }),
                 Tokens::new(),
@@ -114,8 +125,12 @@ where
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
         let index = match E::NUM {
             0..=7 => 0,
-            _ => 1,
+            // Requires rust 1.55, otherwise use _
+            8.. => 1,
+            //_ => 1,
         };
+        //self.0.eic.config[index].write(|w| unsafe { w.bits(E::SENSE & sense as u32)
+        // });
         self.0.eic.config[index].write(|w| unsafe { w.bits(E::SENSE & sense as u32) });
     }
 
@@ -183,6 +198,16 @@ impl Enabled<EIController<NoClock>, U0> {
     }
 }
 
+macro_rules! set_filten {
+    ($self:ident, $index:expr, $number:expr) => {
+        paste! {
+            $self.0.eic.config[1].write(|w| w.[<filten $number>]().bit(
+                ($self.0.config.$index).[<get_filten $number>]() != 0
+                    ))
+        }
+    };
+}
+
 impl<CS, N> Enabled<EIController<WithClock<CS>>, N>
 where
     CS: EIClkSrc,
@@ -208,7 +233,7 @@ where
     pub(super) fn enable_debouncing<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
-            w.debouncen().bits(bits & 0 << E::NUM)
+            w.debouncen().bits(bits | E::MASK)
         });
     }
 
@@ -216,7 +241,8 @@ where
     pub(super) fn disable_debouncing<E: EINum>(&mut self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
-            w.debouncen().bits(bits | E::MASK)
+            // Cler specific bit
+            w.debouncen().bits(bits & 0 << E::NUM)
         });
     }
 
@@ -240,12 +266,26 @@ where
     // Private function that should be accessed through the ExtInt
     /// TODO
     pub(super) fn enable_filtering<E: EINum>(&mut self) {
-        let index = match E::NUM {
-            0..=7 => 0,
-            _ => 1,
-        };
         // Set the FILTEN bit
-        self.0.eic.config[index].write(|w| unsafe { w.bits(E::FILTEN) });
+        match E::NUM {
+            0 => set_filten!(self, 0, 0),
+            1 => set_filten!(self, 0, 1),
+            2 => set_filten!(self, 0, 2),
+            3 => set_filten!(self, 0, 3),
+            4 => set_filten!(self, 0, 4),
+            5 => set_filten!(self, 0, 5),
+            6 => set_filten!(self, 0, 6),
+            7 => set_filten!(self, 0, 7),
+            8 => set_filten!(self, 1, 0),
+            9 => set_filten!(self, 1, 1),
+            10 => set_filten!(self, 1, 2),
+            11 => set_filten!(self, 1, 3),
+            12 => set_filten!(self, 1, 4),
+            13 => set_filten!(self, 1, 5),
+            14 => set_filten!(self, 1, 6),
+            15 => set_filten!(self, 1, 7),
+            _ => unimplemented!(),
+        }
     }
 
     /// TODO

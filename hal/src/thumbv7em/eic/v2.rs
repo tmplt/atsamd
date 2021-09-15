@@ -174,7 +174,7 @@ pub trait EINum: Sealed {
     const FILTEN: u32 = 1 << (3 + Self::NUM * 4);
     // Sense described by the arithmetic series
     // (n)*4
-    const SENSE: u32 = 111 << (Self::NUM * 4);
+    const SENSE: u32 = 0b111 << (Self::NUM * 4);
     // Possibly other constants
 }
 
@@ -221,6 +221,36 @@ impl<E: EINum> Registers<E> {
 
     // Can't add methods that access registers that share state
     // between different ExtInt. Those most be added to EIController
+}
+
+//==============================================================================
+// Register representations
+//==============================================================================
+
+bitfield::bitfield! {
+    /// Register description for EIC Control register
+    ///
+    /// Control consists of two registers, part 1 and 2
+    /// both sharing the same layout.
+    pub struct EIConfigReg(u32);
+    impl Debug;
+    u8;
+    get_sense0, set_sense0: 2, 0;
+    get_filten0, set_filten0: 3, 3;
+    get_sense1, set_sense1: 6, 4;
+    get_filten1, set_filten1: 7, 7;
+    get_sense2, set_sense2: 10, 8;
+    get_filten2, set_filten2: 11, 11;
+    get_sense3, set_sense3: 15, 12;
+    get_filten3, set_filten3: 15, 15;
+    get_sense4, set_sense4: 18, 16;
+    get_filten4, set_filten4: 19, 19;
+    get_sense5, set_sense5: 22, 20;
+    get_filten5, set_filten5: 23, 23;
+    get_sense6, set_sense6: 26, 24;
+    get_filten6, set_filten6: 27, 27;
+    get_sense7, set_sense7: 30, 28;
+    get_filten7, set_filten7: 31, 31;
 }
 
 //==============================================================================
