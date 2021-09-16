@@ -3,6 +3,7 @@ use crate::gpio::v2::InterruptConfig;
 use crate::eic::v2::*;
 
 use super::ExtInt;
+use crate::set_sense_anyextint;
 
 pub struct FilteredExtInt<I, C, K, S>
 where
@@ -12,27 +13,6 @@ where
     S: SenseMode,
 {
     pub extint: ExtInt<I, C, K, S>,
-}
-
-macro_rules! set_sense {
-    ($self:ident, $sense:ident) => {
-        paste! {
-            /// TODO Set FilteredExtInt Sense to [<$sense>]
-            pub fn [<set_sense_$sense:lower>](self) -> FilteredExtInt<I, C, AK, [<Sense$sense>]>
-            {
-                self.extint.regs.set_sense_mode(Sense::$sense);
-
-                FilteredExtInt {
-                    extint: ExtInt {
-                        regs: self.extint.regs,
-                        pin: self.extint.pin,
-                        clockmode: PhantomData,
-                        sensemode: PhantomData,
-                    }
-                }
-            }
-        }
-    };
 }
 
 impl<I, C, AK, S> FilteredExtInt<I, C, AK, S>
@@ -52,7 +32,7 @@ where
     /// TODO
     pub fn disable_filtering<N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AK, S>
     where
         N: Counter,
@@ -64,11 +44,10 @@ where
         self.extint
     }
 
-    set_sense! {self, None}
-    set_sense! {self, High}
-    set_sense! {self, Low}
-    set_sense! {self, Both}
-    set_sense! {self, Rise}
-    set_sense! {self, Fall}
-
+    set_sense_anyextint! {self, "FilteredExt", None}
+    set_sense_anyextint! {self, "FilteredExt", High}
+    set_sense_anyextint! {self, "FilteredExt", Low}
+    set_sense_anyextint! {self, "FilteredExt", Both}
+    set_sense_anyextint! {self, "FilteredExt", Rise}
+    set_sense_anyextint! {self, "FilteredExt", Fall}
 }

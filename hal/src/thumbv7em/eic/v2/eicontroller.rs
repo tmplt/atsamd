@@ -14,23 +14,24 @@ use super::extint::*;
 //==============================================================================
 // EIController
 //==============================================================================
-
 // Struct to represent the external interrupt controller
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
 /// TODO
-pub struct EIController<AK>
+pub struct EIController<AK, EP>
 where
     AK: AnyClock,
+    EP: EnableProtected,
 {
     eic: crate::pac::EIC,
     // Config consists of two 32-bit registers with the same layout
     // config.0 covers [`EInum`] 0 to 7, config.1 [`EInum`] 8 to 15
     config: [EIConfigReg; 2],
     _clockmode: PhantomData<AK>,
+    _enablestate: PhantomData<EP>,
 }
 
-impl<CS> EIController<WithClock<CS>>
+impl<CS> EIController<WithClock<CS>, Configurable>
 where
     CS: EIClkSrc + Increment,
 {
@@ -44,7 +45,11 @@ where
     pub fn new(
         eic: crate::pac::EIC,
         clock: CS,
-    ) -> (Enabled<EIController<WithClock<CS>>, U0>, Tokens, CS::Inc) {
+    ) -> (
+        Enabled<EIController<WithClock<CS>, Configurable>, U0>,
+        Tokens,
+        CS::Inc,
+    ) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -61,6 +66,7 @@ where
                     // Create config register, matching reset state
                     config: [EIConfigReg(0), EIConfigReg(0)],
                     _clockmode: PhantomData,
+                    _enablestate: PhantomData,
                 }),
                 Tokens::new(),
                 clock.inc(),
@@ -69,7 +75,7 @@ where
     }
 }
 
-impl EIController<NoClock> {
+impl EIController<NoClock, Configurable> {
     /// Create an EIC Controller without a clock source
     ///
     /// This limits the EIC functionality
@@ -77,7 +83,9 @@ impl EIController<NoClock> {
     /// Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new_only_async(eic: crate::pac::EIC) -> (Enabled<EIController<NoClock>, U0>, Tokens) {
+    pub fn new_only_async(
+        eic: crate::pac::EIC,
+    ) -> (Enabled<EIController<NoClock, Configurable>, U0>, Tokens) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -96,6 +104,7 @@ impl EIController<NoClock> {
                     // Create config register, matching reset state
                     config: [EIConfigReg(0), EIConfigReg(0)],
                     _clockmode: PhantomData,
+                    _enablestate: PhantomData,
                 }),
                 Tokens::new(),
             )
@@ -103,7 +112,7 @@ impl EIController<NoClock> {
     }
 }
 
-impl<K> Enabled<EIController<K>, U0>
+impl<K> Enabled<EIController<K, Configurable>, U0>
 where
     K: AnyClock,
 {
@@ -115,14 +124,29 @@ where
     }
 }
 
-
-impl<K, N> Enabled<EIController<K>, N>
+impl<AK, EP, N> Enabled<EIController<AK, EP>, N>
 where
-    K: AnyClock,
+    AK: AnyClock,
+    EP: EnableProtected,
     N: Counter,
 {
+    /// Enabling the EIC controller needs to be synchronised
+    fn syncbusy_enable(&self) {
+        while self.0.eic.syncbusy.read().enable().bit_is_set() {
+            cortex_m::asm::nop();
+        }
+    }
+}
+
+impl<AK, N> Enabled<EIController<AK, Configurable>, N>
+where
+    AK: AnyClock,
+    N: Counter,
+{
+    /// TODO
+    ///
+    /// Currently unused
     pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
-        //let einum: usize = E::NUM.into();
         let index: usize = E::OFFSET.into();
         let msb: usize = E::SENSEMSB.into();
         let lsb: usize = E::SENSELSB.into();
@@ -134,51 +158,60 @@ where
             .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 
-    /// Enabling the EIC controller needs to be synchronised
-    fn syncbusy_finalize(&self) {
-        while self.0.eic.syncbusy.read().enable().bit_is_set() {
-            cortex_m::asm::nop();
-        }
-    }
     /// Start EIC controller by writing the enable bit
-    pub fn finalize(&self) {
+    /// this "finalizes" the configuration phase
+    pub fn finalize(self) -> Enabled<EIController<AK, Protected>, N> {
         self.0.eic.ctrla.modify(|_, w| w.enable().set_bit());
-        self.syncbusy_finalize();
+        self.syncbusy_enable();
+
+        Enabled::new(EIController {
+            eic: self.0.eic,
+            config: self.0.config,
+            _clockmode: self.0._clockmode,
+            _enablestate: PhantomData,
+        })
     }
 }
 
-/*
- * Currently broken
- *
-impl<CS> Enabled<EIController<WithClock<CS>>, U0>
+impl<AK, N> Enabled<EIController<AK, Protected>, N>
 where
-    CS: EIClkSrc,
+    AK: AnyClock,
+    N: Counter,
+{
+    pub fn disable(self) -> Enabled<EIController<AK, Configurable>, N> {
+        self.0.eic.ctrla.modify(|_, w| w.enable().clear_bit());
+        self.syncbusy_enable();
+
+        Enabled::new(EIController {
+            eic: self.0.eic,
+            config: self.0.config,
+            _clockmode: self.0._clockmode,
+            _enablestate: PhantomData,
+        })
+    }
+}
+
+impl<AK> Enabled<EIController<AK, Configurable>, U0>
+where
+    AK: AnyClock,
 {
     /// Softare reset the EIC controller
     ///
     /// Will clear all registers and leave the controller disabled
     /// Return the same kind that was configured previously
     /// #TODO, not verified, broken, disable for now
-    pub fn swrst(self) -> Enabled<EIController<WithClock<CS>>, U0> {
-        let (controller, _, _) = EIController::new(self.0.eic, self.0._clockmode);
-        controller
+    pub fn swrst(mut self) -> Self {
+        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
+        // Wait until done
+        self.syncbusy_swrst();
+
+        // Reset any stored state to default reset values
+        self.0.config = [EIConfigReg(0), EIConfigReg(0)];
+        self
     }
 }
 
-impl Enabled<EIController<NoClock>, U0> {
-    /// Softare reset the EIC controller
-    ///
-    /// Will clear all registers and leave the controller disabled
-    /// Return the same kind that was configured previously
-    /// #TODO, not verified, broken, disable for now
-    pub fn swrst(self) -> Enabled<EIController<NoClock>, U0> {
-        let (controller, _) = EIController::new_only_async(self.0.eic);
-        controller
-    }
-}
-*/
-
-impl<CS> Enabled<EIController<WithClock<CS>>, U0>
+impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
 where
     CS: EIClkSrc + Decrement,
 {
@@ -191,14 +224,14 @@ where
     }
 }
 
-impl Enabled<EIController<NoClock>, U0> {
+impl Enabled<EIController<NoClock, Configurable>, U0> {
     /// Disable and destroy the EIC controller
     pub fn destroy(self, _tokens: Tokens) -> crate::pac::EIC {
         self.0.eic
     }
 }
 
-impl<CS, N> Enabled<EIController<WithClock<CS>>, N>
+impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
 where
     CS: EIClkSrc,
     N: Counter,
@@ -278,8 +311,7 @@ where
             .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 }
-
-impl<K, N> Enabled<EIController<K>, N>
+impl<K, N> Enabled<EIController<K, Configurable>, N>
 where
     K: AnyClock,
     N: Counter,

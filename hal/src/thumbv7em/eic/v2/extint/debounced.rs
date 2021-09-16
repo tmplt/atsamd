@@ -1,19 +1,16 @@
 use crate::eic::v2::*;
 use crate::gpio::v2::InterruptConfig;
 
-//use super::{AnyExtInt, ExtInt};
 use super::ExtInt;
+use crate::set_sense_anyextint;
 
-//pub struct DebouncedExtInt<E>
 pub struct DebouncedExtInt<I, C, AK, S>
 where
-    //E: AnyExtInt,
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
     S: SenseMode,
 {
-    //pub extint: E,
     pub extint: ExtInt<I, C, AK, S>,
 }
 
@@ -34,7 +31,7 @@ where
     /// TODO
     pub fn disable_debouncing<N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AK, S>
     where
         N: Counter,
@@ -49,7 +46,7 @@ where
     /// TODO
     pub fn set_debouncer_settings<N>(
         &self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>>, N>,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
         settings: &DebouncerSettings,
     ) where
         N: Counter,
@@ -58,4 +55,11 @@ where
         // generic over the EINum. Either way is fine.
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
+
+    set_sense_anyextint! {self, "DebouncedExt", None}
+    set_sense_anyextint! {self, "DebouncedExt", High}
+    set_sense_anyextint! {self, "DebouncedExt", Low}
+    set_sense_anyextint! {self, "DebouncedExt", Both}
+    set_sense_anyextint! {self, "DebouncedExt", Rise}
+    set_sense_anyextint! {self, "DebouncedExt", Fall}
 }
