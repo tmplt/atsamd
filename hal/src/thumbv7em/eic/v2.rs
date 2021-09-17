@@ -290,6 +290,13 @@ seq!(N in 00..16 {
     }
 });
 
+#[doc = "Token type for ExtIntNMI"]
+pub enum EINMI {}
+impl Sealed for EINMI {}
+impl EINum for EINMI {
+    const NUM: u8 = 16;
+}
+
 //==============================================================================
 // Registers
 //==============================================================================
@@ -432,22 +439,29 @@ impl<E: EINum> Token<E> {
 }
 
 seq!(N in 00..16 {
-    /// TODO
-    pub struct Tokens {
-        #(
+    paste!{
+        /// Tokens for each External Interrupt
+        pub struct Tokens {
+            #(
+                #[allow(dead_code)]
+                #[doc = "Token for EI" N]
+                pub ext_int_#N: Token<EI#N>,
+            )*
             #[allow(dead_code)]
-            pub ext_int_#N: Token<EI#N>,
-        )*
-    }
+            #[doc = "Token for EINMI"]
+            pub ext_int_nmi: Token<EINMI>,
+        }
 
-    impl Tokens {
-        // Unsafe because you must make sure each Token is a singleton
-        /// TODO
-        unsafe fn new() -> Self {
-            Tokens {
-                #(
-                    ext_int_#N: Token::new(),
-                )*
+        impl Tokens {
+            // Unsafe because you must make sure each Token is a singleton
+            /// TODO
+            unsafe fn new() -> Self {
+                Tokens {
+                    #(
+                        ext_int_#N: Token::new(),
+                    )*
+                    ext_int_nmi: Token::new(),
+                }
             }
         }
     }
@@ -586,6 +600,10 @@ macro_rules! impl_get_ei_num (
 // impl_get_ei_num!(PA00, EI00, 0);
 //
 // See bottom of file for full list
+
+// ExtInt Non-Maskable-Interrupt (NMI)
+// Encoded as
+impl_get_ei_num!(PA08, EINMI, 17);
 
 // ExtInt 0
 impl_get_ei_num!(PA00, EI00, 0);

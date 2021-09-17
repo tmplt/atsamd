@@ -17,6 +17,26 @@ pub use debounced::*;
 pub use filtered::*;
 
 //==============================================================================
+// NmiExtInt
+//==============================================================================
+
+/// TODO
+pub struct NmiExtInt<I, C, AM, AK, AS>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    AM: AnyMode,
+    AK: AnyClock,
+    AS: AnySenseMode,
+{
+    pub(super) token: Token<I::EINum>,
+    pub(super) pin: Pin<I, Interrupt<C>>,
+    mode: PhantomData<AM>,
+    clockmode: PhantomData<AK>,
+    sensemode: PhantomData<AS>,
+}
+
+//==============================================================================
 // ExtInt
 //==============================================================================
 

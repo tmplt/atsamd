@@ -26,8 +26,6 @@ where
         N: Counter,
         AM2: AnyMode<Mode = Debounced>,
     {
-        // Could pass the MASK directly instead of making this function
-        // generic over the EINum. Either way is fine.
         eic.enable_debouncing::<I::EINum>();
         ExtInt {
             token: self.token,
@@ -48,8 +46,6 @@ where
     AK: AnyClock<Mode = WithClock<CS>>,
     S: DebounceMode + AnySenseMode,
 {
-    // Do not need access to the EIController here
-
     /// TODO
     pub fn disable_debouncing<AM2, N>(
         self,

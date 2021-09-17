@@ -58,6 +58,10 @@ impl EnableProtected for Configurable {}
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
 /// TODO
+/// Controller interface for External Interrupt Controller (EIC)
+///
+/// Used to create up to 16 [`ExtInt`] and one [`NmiExtInt`]
+///
 pub struct EIController<AK, EP>
 where
     AK: AnyClock,
@@ -310,6 +314,16 @@ where
     N: Counter + PrivateIncrement,
 {
     /// TODO
+    /// Create an EIController with a clocksource
+    ///
+    /// Capable of using all ExtInt detection modes and features
+    /// 
+    /// Including:
+    ///
+    /// * [`Normal`] ExtInt
+    /// * [`Debounced`] ExtInt
+    /// * [`Filtered`] ExtInt
+    /// * Running in [`AsyncOnly`] mode
     pub fn new_sync<I, C>(
         self,
         token: Token<I::EINum>,
@@ -332,6 +346,9 @@ where
     N: Counter + PrivateIncrement,
 {
     /// TODO
+    /// Create an EIController without a clocksource
+    ///
+    /// Limited capabilities, restricted to only using [`AsyncOnly`] mode
     pub fn new_async_only<I, C>(
         self,
         token: Token<I::EINum>,

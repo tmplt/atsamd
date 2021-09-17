@@ -14,8 +14,6 @@ where
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
     ) -> ExtInt<I, C, AM, NoClock, SenseNone>
-//where
-        //AM2: AnyMode<Mode = AsyncOnly>,
     {
         // #TODO
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
@@ -37,6 +35,8 @@ where
     AS: AnySenseMode,
 {
     /// TODO
+    /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
+    /// when EIController has access to a clock source.
     /// FIXME
     pub fn disable_asynconly<AM2, N>(
         self,
