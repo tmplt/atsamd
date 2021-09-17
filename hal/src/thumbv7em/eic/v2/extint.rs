@@ -8,6 +8,7 @@ use crate::eic::v2::*;
 
 use core::mem::transmute;
 
+/*
 pub mod asynconly;
 pub mod debounced;
 pub mod filtered;
@@ -15,6 +16,99 @@ pub mod filtered;
 pub use asynconly::*;
 pub use debounced::*;
 pub use filtered::*;
+*/
+
+//==============================================================================
+// Mode
+//==============================================================================
+
+/// Detection Mode
+/// TODO
+pub enum ExtMode {
+    Normal = 0,
+    AsyncOnly,
+    Filtered,
+    Debounced,
+}
+
+/// TODO
+pub trait Mode: Sealed {
+    const MODE: ExtMode;
+}
+
+/// TODO
+pub enum Normal {}
+/// TODO
+pub enum AsyncOnly {}
+/// TODO
+pub enum Filtered {}
+/// TODO
+pub enum Debounced {}
+
+impl Sealed for Normal {}
+impl Sealed for AsyncOnly {}
+impl Sealed for Filtered {}
+impl Sealed for Debounced {}
+
+impl Mode for Normal {
+    const MODE: ExtMode = ExtMode::Normal;
+}
+impl Mode for AsyncOnly {
+    const MODE: ExtMode = ExtMode::AsyncOnly;
+}
+impl Mode for Filtered {
+    const MODE: ExtMode = ExtMode::Filtered;
+}
+impl Mode for Debounced {
+    const MODE: ExtMode = ExtMode::Debounced;
+}
+
+//==============================================================================
+// AnyMode
+//==============================================================================
+/// Type class for all possible [`Mode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Mode`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnyMode: Sealed + Is<Type = SpecificMode<Self>> {
+    type Mode: Mode;
+}
+
+pub type SpecificMode<S> = <S as AnyMode>::Mode;
+
+macro_rules! any_mode {
+    ($name:ident) => {
+        paste! {
+        impl AnyMode for [<$name>]
+        {
+            type Mode = [<$name>];
+        }
+
+        impl AsRef<Self> for [<$name>] {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+        impl AsMut<Self> for [<$name>] {
+            #[inline]
+            fn as_mut(&mut self) -> &mut Self {
+                self
+            }
+        }
+
+                }
+    };
+}
+
+any_mode!(Normal);
+any_mode!(AsyncOnly);
+any_mode!(Filtered);
+any_mode!(Debounced);
 
 //==============================================================================
 // ExtInt
@@ -24,34 +118,38 @@ pub use filtered::*;
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, AK, AS>
+pub struct ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode,
     AK: AnyClock,
     AS: AnySenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
+    mode: PhantomData<AM>,
     clockmode: PhantomData<AK>,
     sensemode: PhantomData<AS>,
 }
 
 // Sealed for ExtInt
-impl<I, C, AK, AS> Sealed for ExtInt<I, C, AK, AS>
+impl<I, C, AM, AK, AS> Sealed for ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode,
     AK: AnyClock,
     AS: AnySenseMode,
 {
 }
 
-impl<I, C, CS> ExtInt<I, C, WithClock<CS>, SenseNone>
+impl<I, C, AM, CS> ExtInt<I, C, AM, WithClock<CS>, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode,
     CS: EIClkSrc,
 {
     /// Create initial synchronous ExtInt
@@ -60,32 +158,33 @@ where
         ExtInt {
             regs: token.regs,
             pin,
+            mode: PhantomData,
             clockmode: PhantomData,
             sensemode: PhantomData,
         }
     }
 }
 
-impl<I, C> ExtInt<I, C, NoClock, SenseNone>
+impl<I, AM, C> ExtInt<I, C, AM, NoClock, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode<Mode = AsyncOnly>,
 {
     /// Create initial asynchronous ExtInt
     /// TODO
     pub(crate) fn new_async(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> AsyncExtInt<I, C, NoClock, SenseNone> {
+    ) -> ExtInt<I, C, AM, NoClock, SenseNone> {
         // #TODO
         // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
-        AsyncExtInt {
-            extint: ExtInt {
+        ExtInt {
                 regs: token.regs,
                 pin,
+                mode: PhantomData,
                 clockmode: PhantomData,
                 sensemode: PhantomData,
-            },
         }
     }
 }
@@ -98,7 +197,7 @@ macro_rules! set_sense_ext {
                 self,
                 // Used to enforce having access to EIController
                 _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
-                ) -> ExtInt<I, C, AK, [<Sense$sense>]>
+                ) -> ExtInt<I, C, AM, AK, [<Sense$sense>]>
                 where
                     AK2: AnyClock,
                     N: Counter,
@@ -108,6 +207,7 @@ macro_rules! set_sense_ext {
                 ExtInt {
                     regs: self.regs,
                     pin: self.pin,
+                    mode: PhantomData,
                     clockmode: PhantomData,
                     sensemode: PhantomData,
                 }
@@ -125,7 +225,7 @@ macro_rules! set_sense_anyextint {
                 self,
                 // Used to enforce having access to EIController
                 _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
-                ) -> [<$kind Int>]<I, C, AK, [<Sense$sense>]>
+                ) -> [<$kind Int>]<I, C, AM, AK, [<Sense$sense>]>
                 where
                     AK2: AnyClock,
                     N: Counter,
@@ -146,10 +246,11 @@ macro_rules! set_sense_anyextint {
 }
 
 // Methods for any state of ExtInt
-impl<I, C, AK, AS> ExtInt<I, C, AK, AS>
+impl<I, C, AM, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode,
     AK: AnyClock,
     AS: AnySenseMode,
 {
@@ -163,7 +264,7 @@ where
         // Used to enforce having access to EIController
         _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
         sense: Sense,
-    ) -> ExtInt<I, C, AK, S2>
+    ) -> ExtInt<I, C, AM, AK, S2>
     where
         AK2: AnyClock,
         S2: AnySenseMode,
@@ -174,6 +275,7 @@ where
         ExtInt {
             regs: self.regs,
             pin: self.pin,
+            mode: PhantomData,
             clockmode: PhantomData,
             sensemode: PhantomData,
         }
@@ -211,11 +313,12 @@ where
     }
 }
 
-impl<I, C, CS, AK, S> ExtInt<I, C, AK, S>
+impl<I, C, AM, CS, AK, S> ExtInt<I, C, AM, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrc,
+    AM: AnyMode<Mode = Debounced>,
     AK: AnyClock<Mode = WithClock<CS>>,
     S: DebounceMode + AnySenseMode,
 {
@@ -229,22 +332,23 @@ where
     pub fn enable_debouncing<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>, Configurable>, N>,
-    ) -> DebouncedExtInt<I, C, AK, S>
+    ) -> ExtInt<I, C, AM, AK, S>
     where
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_debouncing::<I::EINum>();
-        DebouncedExtInt { extint: self }
+        self
     }
 }
 
-impl<I, C, CS, AK, AS> ExtInt<I, C, AK, AS>
+impl<I, C, AM, CS, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrc,
+    AM: AnyMode<Mode = Filtered>,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
 {
@@ -256,24 +360,15 @@ where
     pub fn enable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>, Configurable>, N>,
-    ) -> FilteredExtInt<I, C, AK, AS>
+    ) -> ExtInt<I, C, AM, AK, AS>
     where
         N: Counter,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
         eic.enable_filtering::<I::EINum>();
-        FilteredExtInt { extint: self }
+        self
     }
-}
-
-impl<I, C, K, AS> ExtInt<I, C, WithClock<K>, AS>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    K: EIClkSrc,
-    AS: AnySenseMode,
-{
 }
 
 //==============================================================================
@@ -294,15 +389,18 @@ where
     /// TODO
     type Pin: InterruptConfig;
     /// TODO
+    type Mode: AnyMode;
+    /// TODO
     type Clock: AnyClock;
     /// TODO
     type SenseMode: AnySenseMode;
 }
 
-impl<I, C, AK, AS> AnyExtInt for ExtInt<I, C, AK, AS>
+impl<I, C, AM, AK, AS> AnyExtInt for ExtInt<I, C, AM, AK, AS>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
+    AM: AnyMode,
     AK: AnyClock,
     AS: AnySenseMode,
 {
@@ -311,33 +409,18 @@ where
     /// TODO
     type Pin = C;
     /// TODO
+    type Mode = AM;
+    /// TODO
     type Clock = AK;
     /// TODO
     type SenseMode = AS;
 }
 
-/*
-impl<I, C, AK, S> AnyExtInt for AsyncExtInt<I, C, AK, S>
-where
-    I: EINum + GetEINum,
-    C: InterruptConfig,
-    AK: AnyClock,
-    S: SenseMode,
-{
-    /// TODO
-    type Num = I;
-    /// TODO
-    type Pin = C;
-    /// TODO
-    type Clock = AK;
-    /// TODO
-    type SenseMode = S;
-}
-*/
 
 pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
     <E as AnyExtInt>::Pin,
+    <E as AnyExtInt>::Mode,
     <E as AnyExtInt>::Clock,
     <E as AnyExtInt>::SenseMode,
 >;
@@ -359,7 +442,26 @@ impl<E: AnyExtInt> AsMut<E> for SpecificExtInt<E> {
 // AsyncExtInt
 
 /*
-impl<I, C, AK, S> AsRef<AsyncExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+impl<I, C, AM, AK, S> AnyExtInt for AsyncExtInt<I, C, AM, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    /// TODO
+    type Num = I;
+    /// TODO
+    type Pin = C;
+    /// TODO
+    type Clock = AK;
+    /// TODO
+    type SenseMode = S;
+}
+*/
+
+/*
+impl<I, C, AM, AK, S> AsRef<AsyncExtInt<I, C, AM, AK, S>> for AsyncExtInt<I, C, AM, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
@@ -367,12 +469,12 @@ where
     S: SenseMode,
 {
     #[inline]
-    fn as_ref(&self) -> &ExtInt<I, C, AK, S> {
+    fn as_ref(&self) -> &ExtInt<I, C, AM, AK, S> {
         unsafe { transmute(self) }
     }
 }
 
-impl<I, C, AK, S> AsMut<AsyncExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+impl<I, C, AM, AK, S> AsMut<AsyncExtInt<I, C, AM, AK, S>> for AsyncExtInt<I, C, AM, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
@@ -380,11 +482,11 @@ where
     S: SenseMode,
 {
     #[inline]
-    fn as_mut(&mut self) -> &mut ExtInt<I, C, AK, S> {
+    fn as_mut(&mut self) -> &mut ExtInt<I, C, AM, AK, S> {
         unsafe { transmute(self) }
     }
 }
-impl<I, C, AK, S> AsRef<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+impl<I, C, AM, AK, S> AsRef<ExtInt<I, C, AM, AK, S>> for AsyncExtInt<I, C, AM, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
@@ -392,25 +494,25 @@ where
     S: SenseMode,
 {
     #[inline]
-    fn as_ref(&self) -> &ExtInt<I, C, AK, S> {
-        unsafe { transmute(self) }
-    }
-}
-
-impl<I, C, AK, S> AsMut<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
-where
-    I: EINum + GetEINum,
-    C: InterruptConfig,
-    AK: AnyClock,
-    S: SenseMode,
-{
-    #[inline]
-    fn as_mut(&mut self) -> &mut ExtInt<I, C, AK, S> {
+    fn as_ref(&self) -> &ExtInt<I, C, AM, AK, S> {
         unsafe { transmute(self) }
     }
 }
 
-impl<I, C, AK, S> From<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+impl<I, C, AM, AK, S> AsMut<ExtInt<I, C, AM, AK, S>> for AsyncExtInt<I, C, AM, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut ExtInt<I, C, AM, AK, S> {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<I, C, AM, AK, S> From<ExtInt<I, C, AM, AK, S>> for AsyncExtInt<I, C, AM, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
@@ -426,7 +528,7 @@ where
         }
     }
 }
-impl<I, C, AK, S> From<AsyncExtInt<I, C, AK, S>> for ExtInt<I, C, AK, S>
+impl<I, C, AM, AK, S> From<AsyncExtInt<I, C, AM, AK, S>> for ExtInt<I, C, AM, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,

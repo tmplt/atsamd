@@ -295,7 +295,7 @@ where
         pin: Pin<I, Interrupt<C>>,
     ) -> (
         <Self as PrivateIncrement>::Inc,
-        ExtInt<I, C, WithClock<CS>, SenseNone>,
+        ExtInt<I, C, Normal, WithClock<CS>, SenseNone>,
     )
     where
         I: GetEINum,
@@ -317,7 +317,7 @@ where
         pin: Pin<I, Interrupt<C>>,
     ) -> (
         <Self as PrivateIncrement>::Inc,
-        AsyncExtInt<I, C, NoClock, SenseNone>,
+        ExtInt<I, C, AsyncOnly, NoClock, SenseNone>,
     )
     where
         I: GetEINum,
