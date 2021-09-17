@@ -5,32 +5,32 @@ use crate::eic::v2::*;
 use super::ExtInt;
 use crate::set_sense_anyextint;
 
-pub struct AsyncExtInt<I, C, AK, S>
+pub struct AsyncExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
-    pub extint: ExtInt<I, C, AK, S>,
+    pub extint: ExtInt<I, C, AK, AS>,
 }
 
 // Sealed for AsyncExtInt
-impl<I, C, AK, S> Sealed for AsyncExtInt<I, C, AK, S>
+impl<I, C, AK, AS> Sealed for AsyncExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
 }
 
-impl<I, C, AK, S> AsyncExtInt<I, C, AK, S>
+impl<I, C, AK, AS> AsyncExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
@@ -39,15 +39,15 @@ where
         self.extint.pin_state()
     }
     /// TODO
-    pub fn set_sense_mode<AK2, S2, N>(
+    pub fn set_sense_mode<AK2, AS2, N>(
         self,
         // Used to enforce having access to EIController
         _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
         sense: Sense,
-    ) -> AsyncExtInt<I, C, AK, S2>
+    ) -> AsyncExtInt<I, C, AK, AS2>
     where
         AK2: AnyClock,
-        S2: SenseMode,
+        AS2: AnySenseMode,
         N: Counter,
     {
         self.extint.regs.set_sense_mode(sense);

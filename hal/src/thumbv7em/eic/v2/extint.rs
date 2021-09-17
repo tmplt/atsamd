@@ -24,27 +24,27 @@ pub use filtered::*;
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
 /// TODO
-pub struct ExtInt<I, C, AK, S>
+pub struct ExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     regs: Registers<I::EINum>,
     #[allow(dead_code)]
     pin: Pin<I, Interrupt<C>>,
     clockmode: PhantomData<AK>,
-    sensemode: PhantomData<S>,
+    sensemode: PhantomData<AS>,
 }
 
 // Sealed for ExtInt
-impl<I, C, AK, S> Sealed for ExtInt<I, C, AK, S>
+impl<I, C, AK, AS> Sealed for ExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
 }
 
@@ -146,12 +146,12 @@ macro_rules! set_sense_anyextint {
 }
 
 // Methods for any state of ExtInt
-impl<I, C, AK, S> ExtInt<I, C, AK, S>
+impl<I, C, AK, AS> ExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     // Must have access to the EIController here
 
@@ -166,7 +166,7 @@ where
     ) -> ExtInt<I, C, AK, S2>
     where
         AK2: AnyClock,
-        S2: SenseMode,
+        S2: AnySenseMode,
         N: Counter,
     {
         self.regs.set_sense_mode(sense);
@@ -217,7 +217,7 @@ where
     C: InterruptConfig,
     CS: EIClkSrc,
     AK: AnyClock<Mode = WithClock<CS>>,
-    S: DebounceMode,
+    S: DebounceMode + AnySenseMode,
 {
     // Methods related to debouncing go here since they require a clock
     // and that SenseMode are one of: Rise, Fall or Both
@@ -240,13 +240,13 @@ where
     }
 }
 
-impl<I, C, CS, AK, S> ExtInt<I, C, AK, S>
+impl<I, C, CS, AK, AS> ExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrc,
     AK: AnyClock<Mode = WithClock<CS>>,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     // Methods related to filtering and debouncing go here,
     // since they require a clock
@@ -256,7 +256,7 @@ where
     pub fn enable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<CS>, Configurable>, N>,
-    ) -> FilteredExtInt<I, C, AK, S>
+    ) -> FilteredExtInt<I, C, AK, AS>
     where
         N: Counter,
     {
@@ -267,12 +267,12 @@ where
     }
 }
 
-impl<I, C, K, S> ExtInt<I, C, WithClock<K>, S>
+impl<I, C, K, AS> ExtInt<I, C, WithClock<K>, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     K: EIClkSrc,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
 }
 
@@ -296,15 +296,15 @@ where
     /// TODO
     type Clock: AnyClock;
     /// TODO
-    type SenseMode: SenseMode;
+    type SenseMode: AnySenseMode;
 }
 
-impl<I, C, AK, S> AnyExtInt for ExtInt<I, C, AK, S>
+impl<I, C, AK, AS> AnyExtInt for ExtInt<I, C, AK, AS>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     /// TODO
     type Num = I;
@@ -313,9 +313,10 @@ where
     /// TODO
     type Clock = AK;
     /// TODO
-    type SenseMode = S;
+    type SenseMode = AS;
 }
 
+/*
 impl<I, C, AK, S> AnyExtInt for AsyncExtInt<I, C, AK, S>
 where
     I: EINum + GetEINum,
@@ -332,6 +333,7 @@ where
     /// TODO
     type SenseMode = S;
 }
+*/
 
 pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
@@ -339,13 +341,6 @@ pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Clock,
     <E as AnyExtInt>::SenseMode,
 >;
-
-//pub type SpecificAsyncExtInt<E> = AsyncExtInt<
-//<E as AnyExtInt>::Num,
-//<E as AnyExtInt>::Pin,
-//<E as AnyExtInt>::Clock,
-//<E as AnyExtInt>::SenseMode,
-//>;
 
 impl<E: AnyExtInt> AsRef<E> for SpecificExtInt<E> {
     #[inline]
@@ -361,10 +356,9 @@ impl<E: AnyExtInt> AsMut<E> for SpecificExtInt<E> {
     }
 }
 
-
-
 // AsyncExtInt
 
+/*
 impl<I, C, AK, S> AsRef<AsyncExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
 where
     I: EINum + GetEINum,
@@ -448,3 +442,4 @@ where
         }
     }
 }
+*/

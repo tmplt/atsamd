@@ -5,22 +5,22 @@ use crate::eic::v2::*;
 use super::ExtInt;
 use crate::set_sense_anyextint;
 
-pub struct FilteredExtInt<I, C, AK, S>
+pub struct FilteredExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
-    pub extint: ExtInt<I, C, AK, S>,
+    pub extint: ExtInt<I, C, AK, AS>,
 }
 
-impl<I, C, AK, S> FilteredExtInt<I, C, AK, S>
+impl<I, C, AK, AS> FilteredExtInt<I, C, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
     AK: AnyClock,
-    S: SenseMode,
+    AS: AnySenseMode,
 {
     // Do not need access to the EIController here
     /// Read the pin state of the ExtInt
@@ -33,7 +33,7 @@ where
     pub fn disable_filtering<N>(
         self,
         eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-    ) -> ExtInt<I, C, AK, S>
+    ) -> ExtInt<I, C, AK, AS>
     where
         N: Counter,
     {
@@ -53,7 +53,7 @@ where
     ) -> FilteredExtInt<I, C, AK, S2>
     where
         AK2: AnyClock,
-        S2: SenseMode,
+        S2: AnySenseMode,
         N: Counter,
     {
         self.extint.regs.set_sense_mode(sense);
