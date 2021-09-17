@@ -1,6 +1,5 @@
-use crate::gpio::v2::InterruptConfig;
-
 use super::*;
+use crate::gpio::v2::InterruptConfig;
 
 impl<I, C, AM, CS, AK, S> ExtInt<I, C, AM, AK, S>
 where
@@ -76,4 +75,3 @@ where
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
 }
-

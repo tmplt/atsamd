@@ -1,6 +1,5 @@
-use crate::gpio::v2::InterruptConfig;
-
 use super::*;
+use crate::gpio::v2::InterruptConfig;
 
 impl<I, AM, C> ExtInt<I, C, AM, NoClock, SenseNone>
 where

@@ -1,12 +1,9 @@
 use core::marker::PhantomData;
-
-use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
-
-use crate::typelevel::{Is, Sealed};
+use core::mem::transmute;
 
 use crate::eic::v2::*;
-
-use core::mem::transmute;
+use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
+use crate::typelevel::{Is, Sealed};
 
 pub mod asynconly;
 pub mod debounced;
