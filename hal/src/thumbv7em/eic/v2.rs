@@ -114,33 +114,41 @@ any_mode!(Debounced);
 
 // Need a custom type, because the PAC has 8 identical copies
 // of the same enum. There's probably a way to patch the PAC
+
 /// Detection Mode
-/// TODO
+///
+/// Defines what triggers an interrupt and/or event
 pub enum Sense {
+    /// No detection
     None = 0,
+    /// Rising-edge detection
     Rise,
+    /// Falling-edge detection
     Fall,
+    /// Both-edge detection
     Both,
+    /// High-level detection
     High,
+    /// Low-level detection
     Low,
 }
 
-/// TODO
+/// Trait for all input [`Sense`] modes
 pub trait SenseMode: Sealed {
     const SENSE: Sense;
 }
 
-/// TODO
+/// No detection
 pub enum SenseNone {}
-/// TODO
+/// Rising-edge detection
 pub enum SenseRise {}
-/// TODO
+/// Falling-edge detection
 pub enum SenseFall {}
-/// TODO
+/// Both-edge detection
 pub enum SenseBoth {}
-/// TODO
+/// High-level detection
 pub enum SenseHigh {}
-/// TODO
+/// Low-level detection
 pub enum SenseLow {}
 
 impl Sealed for SenseNone {}
@@ -170,20 +178,17 @@ impl SenseMode for SenseLow {
 }
 
 /// Valid SenseModes for Level Detection
-/// TODO
 pub trait LevelDetectMode: SenseMode {}
 impl LevelDetectMode for SenseHigh {}
 impl LevelDetectMode for SenseLow {}
 
 /// Valid SenseModes for Edge Detection
-/// TODO
 pub trait EdgeDetectMode: SenseMode {}
 impl EdgeDetectMode for SenseRise {}
 impl EdgeDetectMode for SenseFall {}
 impl EdgeDetectMode for SenseBoth {}
 
 /// Valid SenseModes with Debouncing active
-/// TODO
 pub trait DebounceMode: EdgeDetectMode {}
 impl DebounceMode for SenseRise {}
 impl DebounceMode for SenseFall {}
@@ -275,11 +280,13 @@ pub trait EINum: Sealed {
 }
 
 seq!(N in 00..16 {
-    /// TODO
-    pub enum EI#N {}
-    impl Sealed for EI#N {}
-    impl EINum for EI#N {
-        const NUM: u8 = N;
+    paste! {
+        #[doc = "Token type for ExtInt" N]
+        pub enum EI#N {}
+        impl Sealed for EI#N {}
+        impl EINum for EI#N {
+            const NUM: u8 = N;
+        }
     }
 });
 

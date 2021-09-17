@@ -73,7 +73,7 @@ where
 macro_rules! set_sense_ext {
     ($self:ident, $sense:ident) => {
         paste! {
-            /// TODO Set ExtInt Sense to [<$sense>]
+            #[doc = "Set [`ExtInt`] Input [`Sense`] to "$sense]
             pub fn [<set_sense_$sense:lower>]<AK2, N>(
                 self,
                 // Used to enforce having access to EIController
