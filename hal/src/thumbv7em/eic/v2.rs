@@ -293,9 +293,11 @@ seq!(N in 00..16 {
 #[doc = "Token type for ExtIntNMI"]
 pub enum EINMI {}
 impl Sealed for EINMI {}
+/*
 impl EINum for EINMI {
     const NUM: u8 = 16;
 }
+*/
 
 //==============================================================================
 // Registers
@@ -327,6 +329,38 @@ macro_rules! set_sense_mode_help {
 /// TODO
 struct Registers<E: EINum> {
     ei_num: PhantomData<E>,
+}
+
+struct NmiRegisters {
+    ei_num: PhantomData<NoneT>,
+}
+
+// Special for NMI
+impl NmiRegisters {
+    /// TODO
+    unsafe fn new() -> Self {
+        NmiRegisters {
+            ei_num: PhantomData,
+        }
+    }
+
+    /// TODO
+    fn eic(&self) -> &RegisterBlock {
+        unsafe { &*crate::pac::EIC::ptr() }
+    }
+    /// TODO
+    fn set_sense_mode(&self, sense: Sense) {
+        // Does not use the [`NMISENSE_A`] enum,
+        // uses the custom [`Sense`] because it is identical
+        self.eic()
+            .nmictrl
+            .write(|w| unsafe { w.nmisense().bits(sense as u8) });
+    }
+
+    /// TODO
+    fn clear_interrupt_status(&self) {
+        self.eic().nmiflag.write(|w| w.nmi().set_bit());
+    }
 }
 
 impl<E: EINum> Registers<E> {
@@ -427,6 +461,19 @@ bitfield::bitfield! {
 pub struct Token<E: EINum> {
     regs: Registers<E>,
 }
+pub struct NmiToken {
+    regs: NmiRegisters,
+}
+
+impl NmiToken {
+    // Unsafe because you must make sure each NmiToken is a singleton
+    /// TODO
+    unsafe fn new() -> Self {
+        NmiToken {
+            regs: NmiRegisters::new(),
+        }
+    }
+}
 
 impl<E: EINum> Token<E> {
     // Unsafe because you must make sure each Token is a singleton
@@ -449,7 +496,7 @@ seq!(N in 00..16 {
             )*
             #[allow(dead_code)]
             #[doc = "Token for EINMI"]
-            pub ext_int_nmi: Token<EINMI>,
+            pub ext_int_nmi: NmiToken,
         }
 
         impl Tokens {
@@ -460,7 +507,7 @@ seq!(N in 00..16 {
                     #(
                         ext_int_#N: Token::new(),
                     )*
-                    ext_int_nmi: Token::new(),
+                    ext_int_nmi: NmiToken::new(),
                 }
             }
         }
@@ -595,15 +642,15 @@ macro_rules! impl_get_ei_num (
     }
 );
 
+// ExtInt Non-Maskable-Interrupt (NMI)
+pub trait NmiEI: PinId {}
+impl NmiEI for gpio::PA08 {}
+
 // Need many more of these. But be careful, because the pin number
 // doesn't always match the EINum
 // impl_get_ei_num!(PA00, EI00, 0);
 //
 // See bottom of file for full list
-
-// ExtInt Non-Maskable-Interrupt (NMI)
-// Encoded as
-impl_get_ei_num!(PA08, EINMI, 17);
 
 // ExtInt 0
 impl_get_ei_num!(PA00, EI00, 0);

@@ -11,30 +11,12 @@ use core::mem::transmute;
 pub mod asynconly;
 pub mod debounced;
 pub mod filtered;
+pub mod nmi;
 
 pub use asynconly::*;
 pub use debounced::*;
 pub use filtered::*;
-
-//==============================================================================
-// NmiExtInt
-//==============================================================================
-
-/// TODO
-pub struct NmiExtInt<I, C, AM, AK, AS>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    AM: AnyMode,
-    AK: AnyClock,
-    AS: AnySenseMode,
-{
-    pub(super) token: Token<I::EINum>,
-    pub(super) pin: Pin<I, Interrupt<C>>,
-    mode: PhantomData<AM>,
-    clockmode: PhantomData<AK>,
-    sensemode: PhantomData<AS>,
-}
+pub use nmi::*;
 
 //==============================================================================
 // ExtInt
@@ -90,22 +72,23 @@ where
     }
 }
 
+#[macro_export]
 macro_rules! set_sense_ext {
-    ($self:ident, $sense:ident) => {
+    ($self:ident, $extint:ident, $sense:ident) => {
         paste! {
-            #[doc = "Set [`ExtInt`] Input [`Sense`] to "$sense]
+            #[doc = "Set [`"$extint"`] Input [`Sense`] to "$sense]
             pub fn [<set_sense_$sense:lower>]<AK2, N>(
                 self,
                 // Used to enforce having access to EIController
                 _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
-                ) -> ExtInt<I, C, AM, AK, [<Sense$sense>]>
+                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
                 where
                     AK2: AnyClock,
                     N: Counter,
             {
                 self.token.regs.set_sense_mode(Sense::$sense);
 
-                ExtInt {
+                $extint {
                     token: self.token,
                     pin: self.pin,
                     mode: PhantomData,
@@ -126,10 +109,6 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    // Must have access to the EIController here
-
-    // Do not need access to the EIController here
-
     /// TODO
     pub fn set_sense_mode<AK2, S2, N>(
         self,
@@ -152,12 +131,12 @@ where
             sensemode: PhantomData,
         }
     }
-    set_sense_ext! {self, None}
-    set_sense_ext! {self, High}
-    set_sense_ext! {self, Low}
-    set_sense_ext! {self, Both}
-    set_sense_ext! {self, Rise}
-    set_sense_ext! {self, Fall}
+    set_sense_ext! {self, ExtInt, None}
+    set_sense_ext! {self, ExtInt, High}
+    set_sense_ext! {self, ExtInt, Low}
+    set_sense_ext! {self, ExtInt, Both}
+    set_sense_ext! {self, ExtInt, Rise}
+    set_sense_ext! {self, ExtInt, Fall}
 
     /// Read the pin state of the ExtInt
     /// TODO

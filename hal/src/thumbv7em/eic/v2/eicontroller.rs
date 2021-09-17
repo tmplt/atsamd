@@ -454,3 +454,60 @@ where
             .write(|w| unsafe { w.bits(val & !(E::MASK as u32)) });
     }
 }
+
+impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
+where
+    CS: EIClkSrc,
+    N: Counter + PrivateIncrement,
+{
+    /// TODO
+    /// Create an EIController with a clocksource
+    ///
+    /// Capable of using all ExtInt detection modes and features
+    /// 
+    /// Including:
+    ///
+    /// * [`Normal`] ExtInt
+    /// * [`Debounced`] ExtInt
+    /// * [`Filtered`] ExtInt
+    /// * Running in [`AsyncOnly`] mode
+    pub fn new_sync_nmi<I, C>(
+        self,
+        token: NmiToken,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> (
+        <Self as PrivateIncrement>::Inc,
+        NmiExtInt<I, C, Normal, WithClock<CS>, SenseNone>,
+    )
+    where
+        I: NmiEI,
+        C: InterruptConfig,
+    {
+        (self.inc(), NmiExtInt::new_sync(token, pin))
+    }
+}
+
+impl<K, N> Enabled<EIController<K, Configurable>, N>
+where
+    K: AnyClock,
+    N: Counter + PrivateIncrement,
+{
+    /// TODO
+    /// Create an EIController without a clocksource
+    ///
+    /// Limited capabilities, restricted to only using [`AsyncOnly`] mode
+    pub fn new_async_only_nmi<I, C>(
+        self,
+        token: NmiToken,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> (
+        <Self as PrivateIncrement>::Inc,
+        NmiExtInt<I, C, AsyncOnly, NoClock, SenseNone>,
+    )
+    where
+        I: NmiEI,
+        C: InterruptConfig,
+    {
+        (self.inc(), NmiExtInt::new_async(token, pin))
+    }
+}

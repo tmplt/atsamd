@@ -13,10 +13,16 @@ where
     pub(crate) fn new_async(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, AM, NoClock, SenseNone>
-    {
+    ) -> ExtInt<I, C, AM, NoClock, SenseNone> {
         // #TODO
-        // Configure the AsyncExtInt (e.g. set the Asynchronous Mode register)
+        // Read the current asynch register
+        let val = token.regs.eic().asynch.read().bits() as u16;
+        // Set the bit corresponding to the EINum to one
+        token
+            .regs
+            .eic()
+            .asynch
+            .write(|w| unsafe { w.asynch().bits(val & (1 << <I as GetEINum>::EINum::NUM)) });
         ExtInt {
             token,
             pin,
