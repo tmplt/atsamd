@@ -21,7 +21,8 @@ where
             .regs
             .eic()
             .asynch
-            .write(|w| unsafe { w.asynch().bits(val & (1 << <I as GetEINum>::EINum::NUM)) });
+            .write(|w| unsafe { w.asynch().bits(val | (1 << (<I as GetEINum>::EINum::NUM) as u16)) });
+
         ExtInt {
             token,
             pin,
@@ -40,8 +41,9 @@ where
     AS: AnySenseMode,
 {
     /// TODO
-    /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
-    /// when EIController has access to a clock source.
+    /// Only possible to change to AnyMode<Mode = AsyncOnly>
+    /// when EIController has access to a clock source because
+    /// otherwise locked in AsyncOnly
     pub fn enable_async<AM2, N>(
         self,
         eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
@@ -72,7 +74,9 @@ where
     /// TODO
     /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
     /// when EIController has access to a clock source.
-    /// FIXME
+    ///
+    /// Ensuring that if EIController was created without
+    /// a clocksource it is the only available mode
     pub fn disable_async<AM2, N>(
         self,
         eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
