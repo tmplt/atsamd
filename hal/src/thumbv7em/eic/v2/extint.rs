@@ -162,6 +162,8 @@ where
         self.token.regs.clear_interrupt_status();
     }
     /// TODO
+    ///
+    /// Note: This is not tracked in typestate
     pub fn enable_event_output<AK2, N>(
         &self,
         // Used to enforce having access to EIController
@@ -173,6 +175,8 @@ where
         eic.set_event_output::<I::EINum>(true);
     }
     /// TODO
+    ///
+    /// Note: This is not tracked in typestate
     pub fn disable_event_output<AK2, N>(
         &self,
         // Used to enforce having access to EIController

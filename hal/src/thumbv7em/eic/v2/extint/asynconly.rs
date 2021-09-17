@@ -44,7 +44,7 @@ where
     /// when EIController has access to a clock source.
     pub fn enable_async<AM2, N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AM2, AK, AS>
     where
         N: Counter,
@@ -75,7 +75,7 @@ where
     /// FIXME
     pub fn disable_async<AM2, N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AM2, AK, AS>
     where
         N: Counter,

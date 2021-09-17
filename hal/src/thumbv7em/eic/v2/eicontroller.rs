@@ -202,7 +202,7 @@ where
     }
 
     /// TODO
-    pub(super) fn set_event_output<E: EINum>(&mut self, set_event_output: bool) {
+    pub(super) fn set_event_output<E: EINum>(&self, set_event_output: bool) {
         let val = self.0.eic.evctrl.read().bits();
 
         let data = match set_event_output {
@@ -386,7 +386,7 @@ where
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
     /// TODO
-    pub(super) fn enable_debouncing<E: EINum>(&mut self) {
+    pub(super) fn enable_debouncing<E: EINum>(&self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
             w.debouncen().bits(bits | E::MASK)
@@ -394,7 +394,7 @@ where
     }
 
     /// TODO
-    pub(super) fn disable_debouncing<E: EINum>(&mut self) {
+    pub(super) fn disable_debouncing<E: EINum>(&self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
             // Clear specific bit
@@ -402,7 +402,7 @@ where
         });
     }
 
-    pub(super) fn set_debouncer_settings<E: EINum>(&mut self, settings: &DebouncerSettings) {
+    pub(super) fn set_debouncer_settings<E: EINum>(&self, settings: &DebouncerSettings) {
         self.0.eic.dprescaler.write({
             |w| {
                 w.tickon()
@@ -445,7 +445,7 @@ where
     }
 
     /// TODO
-    pub(super) fn enable_async<E: EINum>(&mut self) {
+    pub(super) fn enable_async<E: EINum>(&self) {
         let val = self.0.eic.asynch.read().bits();
 
         // Write to hardware
@@ -456,7 +456,7 @@ where
     }
 
     /// TODO
-    pub(super) fn disable_async<E: EINum>(&mut self) {
+    pub(super) fn disable_async<E: EINum>(&self) {
         let val = self.0.eic.asynch.read().bits();
 
         // Write to hardware
