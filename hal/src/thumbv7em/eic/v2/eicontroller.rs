@@ -4,7 +4,9 @@ use bitfield::*;
 
 use typenum::U0;
 
-use crate::clock::types::{Counter, Decrement, Enabled, Increment};
+use crate::clock::types::{
+    Counter, Decrement, Enabled, Increment, PrivateDecrement, PrivateIncrement,
+};
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 
 use crate::eic::v2::*;
@@ -211,6 +213,17 @@ where
     }
 }
 
+impl<AK, N> Enabled<EIController<AK, Configurable>, N>
+where
+    AK: AnyClock,
+    N: Counter + PrivateDecrement,
+{
+    pub fn disable_ext_int(self, _any_ext_int: impl AnyExtInt) -> <Self as PrivateDecrement>::Dec
+    {
+        self.dec()
+    }
+}
+
 impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
 where
     CS: EIClkSrc + Decrement,
@@ -234,21 +247,52 @@ impl Enabled<EIController<NoClock, Configurable>, U0> {
 impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
 where
     CS: EIClkSrc,
-    N: Counter,
+    N: Counter + PrivateIncrement,
 {
     /// TODO
     pub fn new_sync<I, C>(
-        &self,
+        self,
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, WithClock<CS>, SenseNone>
+    ) -> (
+        <Self as PrivateIncrement>::Inc,
+        ExtInt<I, C, WithClock<CS>, SenseNone>,
+    )
     where
         I: GetEINum,
         C: InterruptConfig,
     {
-        ExtInt::new_sync(token, pin)
+        (self.inc(), ExtInt::new_sync(token, pin))
     }
+}
 
+impl<K, N> Enabled<EIController<K, Configurable>, N>
+where
+    K: AnyClock,
+    N: Counter + PrivateIncrement,
+{
+    /// TODO
+    pub fn new_async_only<I, C>(
+        self,
+        token: Token<I::EINum>,
+        pin: Pin<I, Interrupt<C>>,
+    ) -> (
+        <Self as PrivateIncrement>::Inc,
+        AsyncExtInt<I, C, NoClock, SenseNone>,
+    )
+    where
+        I: GetEINum,
+        C: InterruptConfig,
+    {
+        (self.inc(), ExtInt::new_async(token, pin))
+    }
+}
+
+impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
+where
+    CS: EIClkSrc,
+    N: Counter,
+{
     // Private function that should be accessed through the ExtInt
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
@@ -309,23 +353,5 @@ where
         // Write the configuration state to hardware
         self.0.eic.config[index]
             .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
-    }
-}
-impl<K, N> Enabled<EIController<K, Configurable>, N>
-where
-    K: AnyClock,
-    N: Counter,
-{
-    /// TODO
-    pub fn new_async<I, C>(
-        &self,
-        token: Token<I::EINum>,
-        pin: Pin<I, Interrupt<C>>,
-    ) -> AsyncExtInt<I, C, NoClock, SenseNone>
-    where
-        I: GetEINum,
-        C: InterruptConfig,
-    {
-        ExtInt::new_async(token, pin)
     }
 }

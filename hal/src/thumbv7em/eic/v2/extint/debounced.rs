@@ -56,6 +56,29 @@ where
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
 
+    /// TODO
+    pub fn set_sense_mode<AK2, S2, N>(
+        self,
+        // Used to enforce having access to EIController
+        _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+        sense: Sense,
+    ) -> DebouncedExtInt<I, C, AK, S2>
+    where
+        AK2: AnyClock,
+        S2: SenseMode,
+        N: Counter,
+    {
+        self.extint.regs.set_sense_mode(sense);
+
+        DebouncedExtInt {
+            extint: ExtInt {
+                regs: self.extint.regs,
+                pin: self.extint.pin,
+                clockmode: PhantomData,
+                sensemode: PhantomData,
+            },
+        }
+    }
     set_sense_anyextint! {self, "DebouncedExt", None}
     set_sense_anyextint! {self, "DebouncedExt", High}
     set_sense_anyextint! {self, "DebouncedExt", Low}

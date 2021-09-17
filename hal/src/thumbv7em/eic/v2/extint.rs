@@ -158,9 +158,16 @@ where
     // Do not need access to the EIController here
 
     /// TODO
-    pub fn set_sense_mode<S2>(self, sense: Sense) -> ExtInt<I, C, AK, S2>
+    pub fn set_sense_mode<AK2, S2, N>(
+        self,
+        // Used to enforce having access to EIController
+        _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+        sense: Sense,
+    ) -> ExtInt<I, C, AK, S2>
     where
+        AK2: AnyClock,
         S2: SenseMode,
+        N: Counter,
     {
         self.regs.set_sense_mode(sense);
 
@@ -292,11 +299,11 @@ where
     type SenseMode: SenseMode;
 }
 
-impl<I, C, K, S> AnyExtInt for ExtInt<I, C, K, S>
+impl<I, C, AK, S> AnyExtInt for ExtInt<I, C, AK, S>
 where
     I: EINum + GetEINum,
     C: InterruptConfig,
-    K: AnyClock,
+    AK: AnyClock,
     S: SenseMode,
 {
     /// TODO
@@ -304,16 +311,41 @@ where
     /// TODO
     type Pin = C;
     /// TODO
-    type Clock = K;
+    type Clock = AK;
     /// TODO
     type SenseMode = S;
 }
+
+impl<I, C, AK, S> AnyExtInt for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    /// TODO
+    type Num = I;
+    /// TODO
+    type Pin = C;
+    /// TODO
+    type Clock = AK;
+    /// TODO
+    type SenseMode = S;
+}
+
 pub type SpecificExtInt<E> = ExtInt<
     <E as AnyExtInt>::Num,
     <E as AnyExtInt>::Pin,
     <E as AnyExtInt>::Clock,
     <E as AnyExtInt>::SenseMode,
 >;
+
+//pub type SpecificAsyncExtInt<E> = AsyncExtInt<
+//<E as AnyExtInt>::Num,
+//<E as AnyExtInt>::Pin,
+//<E as AnyExtInt>::Clock,
+//<E as AnyExtInt>::SenseMode,
+//>;
 
 impl<E: AnyExtInt> AsRef<E> for SpecificExtInt<E> {
     #[inline]
@@ -326,5 +358,93 @@ impl<E: AnyExtInt> AsMut<E> for SpecificExtInt<E> {
     #[inline]
     fn as_mut(&mut self) -> &mut E {
         unsafe { transmute(self) }
+    }
+}
+
+
+
+// AsyncExtInt
+
+impl<I, C, AK, S> AsRef<AsyncExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    #[inline]
+    fn as_ref(&self) -> &ExtInt<I, C, AK, S> {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<I, C, AK, S> AsMut<AsyncExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut ExtInt<I, C, AK, S> {
+        unsafe { transmute(self) }
+    }
+}
+impl<I, C, AK, S> AsRef<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    #[inline]
+    fn as_ref(&self) -> &ExtInt<I, C, AK, S> {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<I, C, AK, S> AsMut<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut ExtInt<I, C, AK, S> {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<I, C, AK, S> From<ExtInt<I, C, AK, S>> for AsyncExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    fn from(self) -> Self {
+        ExtInt {
+            regs: self.extint.regs,
+            pin: self.extint.pin,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+}
+impl<I, C, AK, S> From<AsyncExtInt<I, C, AK, S>> for ExtInt<I, C, AK, S>
+where
+    I: EINum + GetEINum,
+    C: InterruptConfig,
+    AK: AnyClock,
+    S: SenseMode,
+{
+    fn from(self) -> Self {
+        ExtInt {
+            regs: self.extint.regs,
+            pin: self.extint.pin,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
     }
 }
