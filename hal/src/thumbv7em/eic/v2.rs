@@ -358,6 +358,15 @@ impl NmiRegisters {
     }
 
     /// TODO
+    fn set_filter_mode(&self, usefilter: bool) {
+        self.eic().nmictrl.write(|w| w.nmifilten().bit(usefilter));
+    }
+    /// TODO
+    fn set_async_mode(&self, useasync: bool) {
+        self.eic().nmictrl.write(|w| w.nmiasynch().bit(useasync));
+    }
+
+    /// TODO
     fn clear_interrupt_status(&self) {
         self.eic().nmiflag.write(|w| w.nmi().set_bit());
     }

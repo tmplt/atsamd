@@ -35,6 +35,36 @@ impl<I, C, AM, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
+    AM: AnyMode<Mode = Normal>,
+    AK: AnyClock,
+    AS: AnySenseMode,
+{
+    /// TODO
+    /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
+    /// when EIController has access to a clock source.
+    pub fn enable_async<AM2, N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
+    ) -> ExtInt<I, C, AM2, AK, AS>
+    where
+        N: Counter,
+        AM2: AnyMode<Mode = AsyncOnly>,
+    {
+        eic.enable_async::<I::EINum>();
+
+        ExtInt {
+            token: self.token,
+            pin: self.pin,
+            mode: PhantomData,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+}
+impl<I, C, AM, AK, AS> ExtInt<I, C, AM, AK, AS>
+where
+    I: GetEINum,
+    C: InterruptConfig,
     AM: AnyMode<Mode = AsyncOnly>,
     AK: AnyClock,
     AS: AnySenseMode,
@@ -43,7 +73,7 @@ where
     /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
     /// when EIController has access to a clock source.
     /// FIXME
-    pub fn disable_asynconly<AM2, N>(
+    pub fn disable_async<AM2, N>(
         self,
         eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AM2, AK, AS>
