@@ -205,7 +205,7 @@ impl DebounceMode for SenseBoth {}
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
 /// [type class]: crate::typelevel#type-classes
-pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
+pub trait AnySenseMode: SenseMode + Sealed + Is<Type = SpecificSenseMode<Self>> {
     type Mode: SenseMode;
 }
 

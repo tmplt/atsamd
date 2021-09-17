@@ -61,7 +61,6 @@ impl EnableProtected for Configurable {}
 /// Controller interface for External Interrupt Controller (EIC)
 ///
 /// Used to create up to 16 [`ExtInt`] and one [`NmiExtInt`]
-///
 pub struct EIController<AK, EP>
 where
     AK: AnyClock,
@@ -71,7 +70,7 @@ where
     // Config consists of two 32-bit registers with the same layout
     // config.0 covers [`EInum`] 0 to 7, config.1 [`EInum`] 8 to 15
     config: [EIConfigReg; 2],
-    _clockmode: PhantomData<AK>,
+    clockmode: PhantomData<AK>,
     _enablestate: PhantomData<EP>,
 }
 
@@ -109,7 +108,7 @@ where
                     eic,
                     // Create config register, matching reset state
                     config: [EIConfigReg(0), EIConfigReg(0)],
-                    _clockmode: PhantomData,
+                    clockmode: PhantomData,
                     _enablestate: PhantomData,
                 }),
                 Tokens::new(),
@@ -147,7 +146,7 @@ impl EIController<NoClock, Configurable> {
                     eic,
                     // Create config register, matching reset state
                     config: [EIConfigReg(0), EIConfigReg(0)],
-                    _clockmode: PhantomData,
+                    clockmode: PhantomData,
                     _enablestate: PhantomData,
                 }),
                 Tokens::new(),
@@ -202,6 +201,19 @@ where
             .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
     }
 
+    /// TODO
+    pub(super) fn set_event_output<E: EINum>(&mut self, set_event_output: bool) {
+        let val = self.0.eic.evctrl.read().bits();
+
+        let data = match set_event_output {
+            true => val | E::MASK as u32,
+            false => val & !(E::MASK as u32),
+        };
+
+        // Write to hardware
+        self.0.eic.evctrl.write(|w| unsafe { w.bits(data) });
+    }
+
     /// Start EIC controller by writing the enable bit
     /// this "finalizes" the configuration phase
     pub fn finalize(self) -> Enabled<EIController<AK, Protected>, N> {
@@ -211,7 +223,7 @@ where
         Enabled::new(EIController {
             eic: self.0.eic,
             config: self.0.config,
-            _clockmode: self.0._clockmode,
+            clockmode: self.0.clockmode,
             _enablestate: PhantomData,
         })
     }
@@ -229,7 +241,7 @@ where
         Enabled::new(EIController {
             eic: self.0.eic,
             config: self.0.config,
-            _clockmode: self.0._clockmode,
+            clockmode: self.0.clockmode,
             _enablestate: PhantomData,
         })
     }
@@ -317,7 +329,7 @@ where
     /// Create an EIController with a clocksource
     ///
     /// Capable of using all ExtInt detection modes and features
-    /// 
+    ///
     /// Including:
     ///
     /// * [`Normal`] ExtInt
@@ -464,7 +476,7 @@ where
     /// Create an EIController with a clocksource
     ///
     /// Capable of using all ExtInt detection modes and features
-    /// 
+    ///
     /// Including:
     ///
     /// * [`Normal`] ExtInt

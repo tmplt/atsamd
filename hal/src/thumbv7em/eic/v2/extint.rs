@@ -107,6 +107,8 @@ where
     AS: AnySenseMode,
 {
     /// TODO
+    ///
+    /// FIXME Requires extensive type annotations
     pub fn set_sense_mode<AK2, S2, N>(
         self,
         // Used to enforce having access to EIController
@@ -158,6 +160,28 @@ where
     /// TODO
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
+    }
+    /// TODO
+    pub fn enable_event_output<AK2, N>(
+        &self,
+        // Used to enforce having access to EIController
+        eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+    ) where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_event_output::<I::EINum>(true);
+    }
+    /// TODO
+    pub fn disable_event_output<AK2, N>(
+        &self,
+        // Used to enforce having access to EIController
+        eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+    ) where
+        AK2: AnyClock,
+        N: Counter,
+    {
+        eic.set_event_output::<I::EINum>(false);
     }
 }
 
