@@ -1,46 +1,72 @@
-use crate::eic::v2::*;
 use crate::gpio::v2::InterruptConfig;
 
-use super::ExtInt;
-use crate::set_sense_anyextint;
+use super::*;
 
-pub struct DebouncedExtInt<I, C, AK, AS>
+impl<I, C, AM, CS, AK, S> ExtInt<I, C, AM, AK, S>
 where
     I: GetEINum,
     C: InterruptConfig,
-    AK: AnyClock,
-    AS: AnySenseMode,
+    CS: EIClkSrc,
+    AM: AnyMode<Mode = Normal>,
+    AK: AnyClock<Mode = WithClock<CS>>,
+    S: DebounceMode + AnySenseMode,
 {
-    pub extint: ExtInt<I, C, AK, AS>,
-}
-
-impl<I, C, AK, AS> DebouncedExtInt<I, C, AK, AS>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    AK: AnyClock,
-    AS: AnySenseMode,
-{
-    // Do not need access to the EIController here
-    /// Read the pin state of the ExtInt
-    /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.extint.pin_state()
-    }
+    // Methods related to debouncing go here since they require a clock
+    // and that SenseMode are one of: Rise, Fall or Both
 
     /// TODO
-    pub fn disable_debouncing<N>(
+    ///
+    /// ExtInt sense mode must be either [`Sense::Rise`], [`Sense::Fall`]
+    /// or [`Sense::Both`]
+    pub fn enable_debouncing<AM2, N>(
         self,
-        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-    ) -> ExtInt<I, C, AK, AS>
+        eic: &mut Enabled<EIController<WithClock<CS>, Configurable>, N>,
+    ) -> ExtInt<I, C, AM, AK, S>
     where
         N: Counter,
+        AM2: AnyMode<Mode = Debounced>,
     {
         // Could pass the MASK directly instead of making this function
         // generic over the EINum. Either way is fine.
+        eic.enable_debouncing::<I::EINum>();
+        ExtInt {
+            token: self.token,
+            pin: self.pin,
+            mode: PhantomData,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
+}
+
+impl<I, C, AM, CS, AK, S> ExtInt<I, C, AM, AK, S>
+where
+    I: GetEINum,
+    C: InterruptConfig,
+    CS: EIClkSrc,
+    AM: AnyMode<Mode = Debounced>,
+    AK: AnyClock<Mode = WithClock<CS>>,
+    S: DebounceMode + AnySenseMode,
+{
+    // Do not need access to the EIController here
+
+    /// TODO
+    pub fn disable_debouncing<AM2, N>(
+        self,
+        eic: &mut Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
+    ) -> ExtInt<I, C, AM2, AK, S>
+    where
+        N: Counter,
+        AM2: AnyMode<Mode = Normal>,
+    {
         eic.disable_debouncing::<I::EINum>();
-        // Return the inner ExtInt<...>
-        self.extint
+        ExtInt {
+            token: self.token,
+            pin: self.pin,
+            mode: PhantomData,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
     }
 
     /// TODO
@@ -51,38 +77,7 @@ where
     ) where
         N: Counter,
     {
-        // Could pass the MASK directly instead of making this function
-        // generic over the EINum. Either way is fine.
         eic.set_debouncer_settings::<I::EINum>(settings);
     }
-
-    /// TODO
-    pub fn set_sense_mode<AK2, S2, N>(
-        self,
-        // Used to enforce having access to EIController
-        _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
-        sense: Sense,
-    ) -> DebouncedExtInt<I, C, AK, S2>
-    where
-        AK2: AnyClock,
-        S2: AnySenseMode,
-        N: Counter,
-    {
-        self.extint.regs.set_sense_mode(sense);
-
-        DebouncedExtInt {
-            extint: ExtInt {
-                regs: self.extint.regs,
-                pin: self.extint.pin,
-                clockmode: PhantomData,
-                sensemode: PhantomData,
-            },
-        }
-    }
-    set_sense_anyextint! {self, "DebouncedExt", None}
-    set_sense_anyextint! {self, "DebouncedExt", High}
-    set_sense_anyextint! {self, "DebouncedExt", Low}
-    set_sense_anyextint! {self, "DebouncedExt", Both}
-    set_sense_anyextint! {self, "DebouncedExt", Rise}
-    set_sense_anyextint! {self, "DebouncedExt", Fall}
 }
+

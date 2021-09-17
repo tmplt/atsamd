@@ -51,7 +51,6 @@ pub trait EnableProtected: Sealed {}
 impl EnableProtected for Protected {}
 impl EnableProtected for Configurable {}
 
-
 //==============================================================================
 // EIController
 //==============================================================================
@@ -252,16 +251,38 @@ where
     }
 }
 
+/*
+ *
+ * TODO BROKEN, move to Extint and just require reference to EIController?
 impl<AK, N> Enabled<EIController<AK, Configurable>, N>
 where
     AK: AnyClock,
     N: Counter + PrivateDecrement,
 {
-    pub fn disable_ext_int(self, _any_ext_int: impl AnyExtInt) -> <Self as PrivateDecrement>::Dec
+    pub fn disable_ext_int<I, C, AM, AS, AE>(
+        self,
+        any_ext_int: impl AnyExtInt,
+    ) -> (
+        <Self as PrivateDecrement>::Dec,
+        Token<I::EINum>,
+        Pin<I, Interrupt<C>>,
+    )
+    where
+        I: GetEINum,
+        C: InterruptConfig,
+        AM: AnyMode,
+        AS: AnySenseMode,
+        AE: AnyExtInt<Num = I, Pin = C>,
     {
-        self.dec()
+        //let extint: SpecificExtInt<AE>;
+        //let extint: any_ext_int;
+        //let extint: any_ext_int.into();
+        let extint = any_ext_int;
+
+        (self.dec(), extint.token, extint.pin)
     }
 }
+*/
 
 impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
 where
@@ -392,5 +413,27 @@ where
         // Write the configuration state to hardware
         self.0.eic.config[index]
             .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
+    }
+
+    /// TODO
+    pub(super) fn enable_async<E: EINum>(&mut self) {
+        let val = self.0.eic.asynch.read().bits();
+
+        // Write to hardware
+        self.0
+            .eic
+            .asynch
+            .write(|w| unsafe { w.bits(val & (E::MASK as u32)) });
+    }
+
+    /// TODO
+    pub(super) fn disable_async<E: EINum>(&mut self) {
+        let val = self.0.eic.asynch.read().bits();
+
+        // Write to hardware
+        self.0
+            .eic
+            .asynch
+            .write(|w| unsafe { w.bits(val & !(E::MASK as u32)) });
     }
 }

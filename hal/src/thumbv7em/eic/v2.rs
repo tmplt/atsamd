@@ -15,8 +15,98 @@ pub mod eicontroller;
 pub mod extint;
 
 pub use crate::eic::v2::eicontroller::*;
-//pub use crate::eic::v2::extint::{asynconly::*, debounced::*, filtered::*};
 
+//==============================================================================
+// Mode
+//==============================================================================
+
+/// Detection Mode
+/// TODO
+pub enum ExtMode {
+    Normal = 0,
+    AsyncOnly,
+    Filtered,
+    Debounced,
+}
+
+/// TODO
+pub trait Mode: Sealed {
+    const MODE: ExtMode;
+}
+
+/// TODO
+pub enum Normal {}
+/// TODO
+pub enum AsyncOnly {}
+/// TODO
+pub enum Filtered {}
+/// TODO
+pub enum Debounced {}
+
+impl Sealed for Normal {}
+impl Sealed for AsyncOnly {}
+impl Sealed for Filtered {}
+impl Sealed for Debounced {}
+
+impl Mode for Normal {
+    const MODE: ExtMode = ExtMode::Normal;
+}
+impl Mode for AsyncOnly {
+    const MODE: ExtMode = ExtMode::AsyncOnly;
+}
+impl Mode for Filtered {
+    const MODE: ExtMode = ExtMode::Filtered;
+}
+impl Mode for Debounced {
+    const MODE: ExtMode = ExtMode::Debounced;
+}
+
+//==============================================================================
+// AnyMode
+//==============================================================================
+/// Type class for all possible [`Mode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Mode`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnyMode: Sealed + Is<Type = SpecificMode<Self>> {
+    type Mode: Mode;
+}
+
+pub type SpecificMode<S> = <S as AnyMode>::Mode;
+
+macro_rules! any_mode {
+    ($name:ident) => {
+        paste! {
+        impl AnyMode for [<$name>]
+        {
+            type Mode = [<$name>];
+        }
+
+        impl AsRef<Self> for [<$name>] {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+        impl AsMut<Self> for [<$name>] {
+            #[inline]
+            fn as_mut(&mut self) -> &mut Self {
+                self
+            }
+        }
+
+                }
+    };
+}
+
+any_mode!(Normal);
+any_mode!(AsyncOnly);
+any_mode!(Filtered);
+any_mode!(Debounced);
 
 //==============================================================================
 // Sense
