@@ -17,44 +17,6 @@ pub mod extint;
 pub use crate::eic::v2::eicontroller::*;
 pub use crate::eic::v2::extint::{asynconly::*, debounced::*, filtered::*};
 
-//==============================================================================
-// Sense
-//==============================================================================
-
-/// Used to enforce "Enable Protect"
-///
-/// When `CTRL.ENABLE` is set registers
-///
-/// * EVCTRL
-/// * CONFIG
-/// * ASYNCH
-/// * DEBOUNCEN
-/// * DPRESCALER
-///
-/// becomes write protected
-pub enum Protected {}
-/// Used to enforce "Enable Protect"
-///
-/// When `CTRL.ENABLE` is cleared registers
-///
-/// * EVCTRL
-/// * CONFIG
-/// * ASYNCH
-/// * DEBOUNCEN
-/// * DPRESCALER
-///
-/// are accessible
-pub enum Configurable {}
-
-impl Sealed for Protected {}
-impl Sealed for Configurable {}
-
-/// Used to encode EIController enabled state
-pub trait EnableProtected: Sealed {}
-
-impl EnableProtected for Protected {}
-impl EnableProtected for Configurable {}
-
 
 //==============================================================================
 // Sense
