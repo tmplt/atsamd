@@ -74,6 +74,19 @@ where
     _enablestate: PhantomData<EP>,
 }
 
+impl<AK, EP> EIController<AK, EP>
+where
+    AK: AnyClock,
+    EP: EnableProtected,
+{
+    /*
+    fn update_config(self, index: usize) -> &EIConfigReg {
+        self.config[index].as_ptr()
+    }
+    */
+}
+
+
 impl<CS> EIController<WithClock<CS>, Configurable>
 where
     CS: EIClkSrc + Increment,
@@ -187,18 +200,27 @@ where
     N: Counter,
 {
     /// TODO
-    ///
-    /// Currently unused
-    pub(super) fn set_sense_mode<E: EINum>(&mut self, sense: Sense) {
+    pub(super) fn set_sense_mode<E: EINum>(&self, sense: Sense) {
         let index: usize = E::OFFSET.into();
         let msb: usize = E::SENSEMSB.into();
         let lsb: usize = E::SENSELSB.into();
-        // Set the SENSE bits in the configuration state
-        self.0.config[index].set_bit_range(msb, lsb, sense as u8);
+
+        // Read the register and parse it as a [`EIConfigReg`]
+        let mut config = EIConfigReg(self.0.eic.config[index].read().bits());
+        // Modify only the relevant part of the configuration
+        config.set_bit_range(msb, lsb, sense as u8);
+
         // Write the configuration state to hardware
-        //set_sense!(self, index, msb, lsb, einum);
         self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
+            .write(|w| unsafe { w.bits(config.bit_range(31, 0)) });
+    }
+    /// TODO
+    pub(super) fn set_sense_mode_nmi(&self, sense: Sense) {
+        // Write the configuration state to hardware
+        self.0
+            .eic
+            .nmictrl
+            .write(|w| unsafe { w.nmisense().bits(sense as u8) });
     }
 
     /// TODO

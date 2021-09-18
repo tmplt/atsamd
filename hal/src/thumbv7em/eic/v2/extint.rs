@@ -71,19 +71,45 @@ where
 
 #[macro_export]
 macro_rules! set_sense_ext {
+    // For all regular ExtInt
+    ($self:ident, $I:ident, $extint:ident, $sense:ident) => {
+        paste! {
+            #[doc = "Set Input [`Sense`] to "$sense]
+            pub fn [<set_sense_$sense:lower>]<AK2, N>(
+                self,
+                // Used to enforce having access to EIController
+                eic: &Enabled<EIController<AK2, Configurable>, N>,
+                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
+                where
+                    AK2: AnyClock,
+                    N: Counter,
+            {
+                eic.set_sense_mode::<I::EINum>(Sense::$sense);
+
+                $extint {
+                    token: self.token,
+                    pin: self.pin,
+                    mode: PhantomData,
+                    clockmode: PhantomData,
+                    sensemode: PhantomData,
+                }
+            }
+        }
+    };
+    // For NMI case
     ($self:ident, $extint:ident, $sense:ident) => {
         paste! {
             #[doc = "Set Input [`Sense`] to "$sense]
             pub fn [<set_sense_$sense:lower>]<AK2, N>(
                 self,
                 // Used to enforce having access to EIController
-                _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+                eic: &Enabled<EIController<AK2, Configurable>, N>,
                 ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
                 where
                     AK2: AnyClock,
                     N: Counter,
             {
-                self.token.regs.set_sense_mode(Sense::$sense);
+                eic.set_sense_mode_nmi(Sense::$sense);
 
                 $extint {
                     token: self.token,
@@ -112,7 +138,7 @@ where
     pub fn set_sense_mode<AK2, S2, N>(
         self,
         // Used to enforce having access to EIController
-        _eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+        eic: &Enabled<EIController<AK2, Configurable>, N>,
         sense: Sense,
     ) -> ExtInt<I, C, AM, AK, S2>
     where
@@ -120,7 +146,7 @@ where
         S2: AnySenseMode,
         N: Counter,
     {
-        self.token.regs.set_sense_mode(sense);
+        eic.set_sense_mode::<I::EINum>(sense);
 
         ExtInt {
             token: self.token,
@@ -130,12 +156,12 @@ where
             sensemode: PhantomData,
         }
     }
-    set_sense_ext! {self, ExtInt, None}
-    set_sense_ext! {self, ExtInt, High}
-    set_sense_ext! {self, ExtInt, Low}
-    set_sense_ext! {self, ExtInt, Both}
-    set_sense_ext! {self, ExtInt, Rise}
-    set_sense_ext! {self, ExtInt, Fall}
+    set_sense_ext! {self, I, ExtInt, None}
+    set_sense_ext! {self, I, ExtInt, High}
+    set_sense_ext! {self, I, ExtInt, Low}
+    set_sense_ext! {self, I, ExtInt, Both}
+    set_sense_ext! {self, I, ExtInt, Rise}
+    set_sense_ext! {self, I, ExtInt, Fall}
 
     /// Read the pin state of the ExtInt
     /// TODO
@@ -167,7 +193,7 @@ where
     pub fn enable_event_output<AK2, N>(
         &self,
         // Used to enforce having access to EIController
-        eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+        eic: &Enabled<EIController<AK2, Configurable>, N>,
     ) where
         AK2: AnyClock,
         N: Counter,
@@ -180,7 +206,7 @@ where
     pub fn disable_event_output<AK2, N>(
         &self,
         // Used to enforce having access to EIController
-        eic: &mut Enabled<EIController<AK2, Configurable>, N>,
+        eic: &Enabled<EIController<AK2, Configurable>, N>,
     ) where
         AK2: AnyClock,
         N: Counter,
