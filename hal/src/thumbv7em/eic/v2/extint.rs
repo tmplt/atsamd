@@ -19,6 +19,249 @@ pub use nmi::*;
 use crate::set_sense_ext;
 
 //==============================================================================
+// Mode
+//==============================================================================
+
+/// Detection Mode
+/// TODO
+pub enum EIMode {
+    Normal = 0,
+    AsyncOnly,
+    Filtered,
+    FilteredAsync,
+    Debounced,
+    DebouncedAsync,
+}
+
+/// TODO
+pub trait Mode: Sealed {
+    const MODE: EIMode;
+}
+
+/// TODO
+pub enum Normal {}
+/// TODO
+pub enum AsyncOnly {}
+/// TODO
+pub enum Filtered {}
+/// TODO
+pub enum FilteredAsync {}
+/// TODO
+pub enum Debounced {}
+/// TODO
+pub enum DebouncedAsync {}
+
+impl Sealed for Normal {}
+impl Sealed for AsyncOnly {}
+impl Sealed for Filtered {}
+impl Sealed for FilteredAsync {}
+impl Sealed for Debounced {}
+impl Sealed for DebouncedAsync {}
+
+impl Mode for Normal {
+    const MODE: EIMode = EIMode::Normal;
+}
+impl Mode for AsyncOnly {
+    const MODE: EIMode = EIMode::AsyncOnly;
+}
+impl Mode for Filtered {
+    const MODE: EIMode = EIMode::Filtered;
+}
+impl Mode for FilteredAsync {
+    const MODE: EIMode = EIMode::FilteredAsync;
+}
+impl Mode for Debounced {
+    const MODE: EIMode = EIMode::Debounced;
+}
+impl Mode for DebouncedAsync {
+    const MODE: EIMode = EIMode::DebouncedAsync;
+}
+
+//==============================================================================
+// AnyMode
+//==============================================================================
+/// Type class for all possible [`Mode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Mode`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnyMode: Sealed + Is<Type = SpecificMode<Self>> {
+    type Mode: Mode;
+}
+
+pub type SpecificMode<S> = <S as AnyMode>::Mode;
+
+macro_rules! any_mode {
+    ($name:ident) => {
+        paste! {
+        impl AnyMode for [<$name>]
+        {
+            type Mode = [<$name>];
+        }
+
+        impl AsRef<Self> for [<$name>] {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+        impl AsMut<Self> for [<$name>] {
+            #[inline]
+            fn as_mut(&mut self) -> &mut Self {
+                self
+            }
+        }
+
+                }
+    };
+}
+
+any_mode!(Normal);
+any_mode!(AsyncOnly);
+any_mode!(Filtered);
+any_mode!(FilteredAsync);
+any_mode!(Debounced);
+any_mode!(DebouncedAsync);
+
+//==============================================================================
+// Sense
+//==============================================================================
+
+// Need a custom type, because the PAC has 8 identical copies
+// of the same enum. There's probably a way to patch the PAC
+
+/// Detection Mode
+///
+/// Defines what triggers an interrupt and/or event
+pub enum Sense {
+    /// No detection
+    None = 0,
+    /// Rising-edge detection
+    Rise,
+    /// Falling-edge detection
+    Fall,
+    /// Both-edge detection
+    Both,
+    /// High-level detection
+    High,
+    /// Low-level detection
+    Low,
+}
+
+/// Trait for all input [`Sense`] modes
+pub trait SenseMode: Sealed {
+    const SENSE: Sense;
+}
+
+/// No detection
+pub enum SenseNone {}
+/// Rising-edge detection
+pub enum SenseRise {}
+/// Falling-edge detection
+pub enum SenseFall {}
+/// Both-edge detection
+pub enum SenseBoth {}
+/// High-level detection
+pub enum SenseHigh {}
+/// Low-level detection
+pub enum SenseLow {}
+
+impl Sealed for SenseNone {}
+impl Sealed for SenseRise {}
+impl Sealed for SenseFall {}
+impl Sealed for SenseBoth {}
+impl Sealed for SenseHigh {}
+impl Sealed for SenseLow {}
+
+impl SenseMode for SenseNone {
+    const SENSE: Sense = Sense::None;
+}
+impl SenseMode for SenseRise {
+    const SENSE: Sense = Sense::Rise;
+}
+impl SenseMode for SenseFall {
+    const SENSE: Sense = Sense::Fall;
+}
+impl SenseMode for SenseBoth {
+    const SENSE: Sense = Sense::Both;
+}
+impl SenseMode for SenseHigh {
+    const SENSE: Sense = Sense::High;
+}
+impl SenseMode for SenseLow {
+    const SENSE: Sense = Sense::Low;
+}
+
+/// Valid SenseModes for Level Detection
+pub trait LevelDetectMode: SenseMode {}
+impl LevelDetectMode for SenseHigh {}
+impl LevelDetectMode for SenseLow {}
+
+/// Valid SenseModes for Edge Detection
+pub trait EdgeDetectMode: SenseMode {}
+impl EdgeDetectMode for SenseRise {}
+impl EdgeDetectMode for SenseFall {}
+impl EdgeDetectMode for SenseBoth {}
+
+/// Valid SenseModes with Debouncing active
+pub trait DebounceMode: EdgeDetectMode {}
+impl DebounceMode for SenseRise {}
+impl DebounceMode for SenseFall {}
+impl DebounceMode for SenseBoth {}
+
+//==============================================================================
+// AnySenseMode
+//==============================================================================
+/// Type class for all possible [`SenseMode`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Sense`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnySenseMode: SenseMode + Sealed + Is<Type = SpecificSenseMode<Self>> {
+    type Mode: SenseMode;
+}
+
+pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
+
+macro_rules! any_sense {
+    ($name:ident) => {
+        paste! {
+        impl AnySenseMode for [<$name>]
+        {
+            type Mode = [<$name>];
+        }
+
+        impl AsRef<Self> for [<$name>] {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+        impl AsMut<Self> for [<$name>] {
+            #[inline]
+            fn as_mut(&mut self) -> &mut Self {
+                self
+            }
+        }
+
+                }
+    };
+}
+
+any_sense!(SenseNone);
+any_sense!(SenseRise);
+any_sense!(SenseFall);
+any_sense!(SenseBoth);
+any_sense!(SenseHigh);
+any_sense!(SenseLow);
+
+//==============================================================================
 // ExtInt
 //==============================================================================
 
