@@ -1,5 +1,6 @@
 use super::*;
 use crate::gpio::v2::InterruptConfig;
+use bitfield::{Bit, BitRange};
 
 impl<I, AM, C> ExtInt<I, C, AM, WithoutClock, SenseNone>
 where
@@ -13,15 +14,19 @@ where
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
     ) -> ExtInt<I, C, AM, WithoutClock, SenseNone> {
-        // #TODO
+        let bitnum: usize = <I as GetEINum>::EINum::NUM.into();
+
         // Read the current asynch register
-        let val = token.regs.eic().asynch.read().bits() as u16;
-        // Set the bit corresponding to the EINum to one
+        let mut asynch_reg = EIAsyncReg(token.regs.eic().asynch.read().bits() as u16);
+        // Enable the asynch-bit
+        asynch_reg.set_bit(bitnum, true);
+
+        // Set the bit corresponding to the EINum
         token
             .regs
             .eic()
             .asynch
-            .write(|w| unsafe { w.asynch().bits(val | (1 << (<I as GetEINum>::EINum::NUM) as u16)) });
+            .write(|w| unsafe { w.asynch().bits(asynch_reg.bit_range(15, 0)) });
 
         ExtInt {
             token,
@@ -79,6 +84,7 @@ where
     /// a clocksource it is the only available mode
     pub fn disable_async<AM2, N>(
         self,
+        // EIContrtoller<WithClock<...>> ensures EIController has a clocksource
         eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
     ) -> ExtInt<I, C, AM2, AK, AS>
     where

@@ -432,6 +432,32 @@ bitfield::bitfield! {
     get_filten7, set_filten7: 31, 31;
 }
 
+bitfield::bitfield! {
+    /// Register description for EIC Control register
+    ///
+    /// Control consists of two registers, part 1 and 2
+    /// both sharing the same layout.
+    pub struct EIAsyncReg(u16);
+    impl Debug;
+    u8;
+    get_asynch0, set_asynch0: 0, 0;
+    get_asynch1, set_asynch1: 1, 1;
+    get_asynch2, set_asynch2: 2, 2;
+    get_asynch3, set_asynch3: 3, 3;
+    get_asynch4, set_asynch4: 4, 4;
+    get_asynch5, set_asynch5: 5, 5;
+    get_asynch6, set_asynch6: 6, 6;
+    get_asynch7, set_asynch7: 7, 7;
+    get_asynch8, set_asynch8: 8, 8;
+    get_asynch9, set_asynch9: 9, 9;
+    get_asynch10, set_asynch10: 10, 10;
+    get_asynch11, set_asynch11: 11, 11;
+    get_asynch12, set_asynch12: 12, 12;
+    get_asynch13, set_asynch13: 13, 13;
+    get_asynch14, set_asynch14: 14, 14;
+    get_asynch15, set_asynch15: 15, 15;
+}
+
 //==============================================================================
 // Set sense mode helper macro
 //==============================================================================
