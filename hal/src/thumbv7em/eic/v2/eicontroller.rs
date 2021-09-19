@@ -34,6 +34,7 @@ use super::extint::*;
 /// active when sense-mode is changed to any other mode
 /// than `None`
 pub enum Protected {}
+
 /// Used to enforce "Enable Protect"
 ///
 /// When `CTRL.ENABLE` is cleared registers
@@ -51,10 +52,10 @@ impl Sealed for Protected {}
 impl Sealed for Configurable {}
 
 /// Used to encode EIController enabled state
-pub trait EnableProtected: Sealed {}
+pub trait EnableProtection: Sealed {}
 
-impl EnableProtected for Protected {}
-impl EnableProtected for Configurable {}
+impl EnableProtection for Protected {}
+impl EnableProtection for Configurable {}
 
 //==============================================================================
 // EIController
@@ -69,7 +70,7 @@ impl EnableProtected for Configurable {}
 pub struct EIController<AK, EP>
 where
     AK: AnyClock,
-    EP: EnableProtected,
+    EP: EnableProtection,
 {
     eic: crate::pac::EIC,
     clockmode: PhantomData<AK>,
@@ -156,9 +157,9 @@ impl EIController<WithoutClock, Configurable> {
     }
 }
 
-impl<K> Enabled<EIController<K, Configurable>, U0>
+impl<AK> Enabled<EIController<AK, Configurable>, U0>
 where
-    K: AnyClock,
+    AK: AnyClock,
 {
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
@@ -171,7 +172,7 @@ where
 impl<AK, EP, N> Enabled<EIController<AK, EP>, N>
 where
     AK: AnyClock,
-    EP: EnableProtected,
+    EP: EnableProtection,
     N: Counter,
 {
     /// Enabling the EIC controller needs to be synchronised
@@ -180,6 +181,10 @@ where
             cortex_m::asm::nop();
         }
     }
+
+    fn read_config_reg(&self, index: usize) -> EIConfigReg {
+        EIConfigReg(self.0.eic.config[index].read().bits())
+    }
 }
 
 impl<AK, N> Enabled<EIController<AK, Configurable>, N>
@@ -187,14 +192,17 @@ where
     AK: AnyClock,
     N: Counter,
 {
-    /// TODO
+    /// Change ExtInt sensemode
+    ///
+    /// Available modes: see [`Sense`]
     pub(super) fn set_sense_mode<E: EINum>(&self, sense: Sense) {
         let index: usize = E::OFFSET.into();
         let msb: usize = E::SENSEMSB.into();
         let lsb: usize = E::SENSELSB.into();
 
         // Read the register and parse it as a [`EIConfigReg`]
-        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
+        let mut config_reg = self.read_config_reg(index);
+
         // Modify only the relevant part of the configuration
         config_reg.set_bit_range(msb, lsb, sense as u8);
 
@@ -423,7 +431,7 @@ where
         let bitnum: usize = E::FILTEN.into();
 
         // Read the register and parse it as a [`EIConfigReg`]
-        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
+        let mut config_reg = self.read_config_reg(index);
         config_reg.set_bit(bitnum, true);
 
         // Write the configuration state to hardware
@@ -436,7 +444,7 @@ where
         let bitnum: usize = E::FILTEN.into();
 
         // Read the register and parse it as a [`EIConfigReg`]
-        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
+        let mut config_reg = self.read_config_reg(index);
         config_reg.set_bit(bitnum, false);
 
         // Write the configuration state to hardware
