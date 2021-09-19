@@ -15,6 +15,9 @@ pub use debounced::*;
 pub use filtered::*;
 pub use nmi::*;
 
+// Macro for setting sense
+use crate::set_sense_ext;
+
 //==============================================================================
 // ExtInt
 //==============================================================================
@@ -67,60 +70,6 @@ where
             sensemode: PhantomData,
         }
     }
-}
-
-#[macro_export]
-macro_rules! set_sense_ext {
-    // For all regular ExtInt
-    ($self:ident, $I:ident, $extint:ident, $sense:ident) => {
-        paste! {
-            #[doc = "Set Input [`Sense`] to "$sense]
-            pub fn [<set_sense_$sense:lower>]<AK2, N>(
-                self,
-                // Used to enforce having access to EIController
-                eic: &Enabled<EIController<AK2, Configurable>, N>,
-                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
-                where
-                    AK2: AnyClock,
-                    N: Counter,
-            {
-                eic.set_sense_mode::<I::EINum>(Sense::$sense);
-
-                $extint {
-                    token: self.token,
-                    pin: self.pin,
-                    mode: PhantomData,
-                    clockmode: PhantomData,
-                    sensemode: PhantomData,
-                }
-            }
-        }
-    };
-    // For NMI case
-    ($self:ident, $extint:ident, $sense:ident) => {
-        paste! {
-            #[doc = "Set Input [`Sense`] to "$sense]
-            pub fn [<set_sense_$sense:lower>]<AK2, N>(
-                self,
-                // Used to enforce having access to EIController
-                eic: &Enabled<EIController<AK2, Configurable>, N>,
-                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
-                where
-                    AK2: AnyClock,
-                    N: Counter,
-            {
-                eic.set_sense_mode_nmi(Sense::$sense);
-
-                $extint {
-                    token: self.token,
-                    pin: self.pin,
-                    mode: PhantomData,
-                    clockmode: PhantomData,
-                    sensemode: PhantomData,
-                }
-            }
-        }
-    };
 }
 
 // Methods for any state of ExtInt

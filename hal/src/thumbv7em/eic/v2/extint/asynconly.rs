@@ -1,7 +1,7 @@
 use super::*;
 use crate::gpio::v2::InterruptConfig;
 
-impl<I, AM, C> ExtInt<I, C, AM, NoClock, SenseNone>
+impl<I, AM, C> ExtInt<I, C, AM, WithoutClock, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
@@ -12,7 +12,7 @@ where
     pub(crate) fn new_async(
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
-    ) -> ExtInt<I, C, AM, NoClock, SenseNone> {
+    ) -> ExtInt<I, C, AM, WithoutClock, SenseNone> {
         // #TODO
         // Read the current asynch register
         let val = token.regs.eic().asynch.read().bits() as u16;

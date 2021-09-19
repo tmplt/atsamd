@@ -4,6 +4,7 @@ use bitfield::*;
 
 use typenum::U0;
 
+// Maybe these types are useful enough to get included into crate::typelevel?
 use crate::clock::types::{
     Counter, Decrement, Enabled, Increment, PrivateDecrement, PrivateIncrement,
 };
@@ -27,7 +28,11 @@ use super::extint::*;
 /// * DEBOUNCEN
 /// * DPRESCALER
 ///
-/// becomes write protected
+/// becomes write protected and the EIC is active
+///
+/// The exception is the NMI-interrupt which becomes
+/// active when sense-mode is changed to any other mode
+/// than `None`
 pub enum Protected {}
 /// Used to enforce "Enable Protect"
 ///
@@ -67,25 +72,9 @@ where
     EP: EnableProtected,
 {
     eic: crate::pac::EIC,
-    // Config consists of two 32-bit registers with the same layout
-    // config.0 covers [`EInum`] 0 to 7, config.1 [`EInum`] 8 to 15
-    config: [EIConfigReg; 2],
     clockmode: PhantomData<AK>,
     _enablestate: PhantomData<EP>,
 }
-
-impl<AK, EP> EIController<AK, EP>
-where
-    AK: AnyClock,
-    EP: EnableProtected,
-{
-    /*
-    fn update_config(self, index: usize) -> &EIConfigReg {
-        self.config[index].as_ptr()
-    }
-    */
-}
-
 
 impl<CS> EIController<WithClock<CS>, Configurable>
 where
@@ -119,8 +108,6 @@ where
             (
                 Enabled::new(Self {
                     eic,
-                    // Create config register, matching reset state
-                    config: [EIConfigReg(0), EIConfigReg(0)],
                     clockmode: PhantomData,
                     _enablestate: PhantomData,
                 }),
@@ -131,7 +118,7 @@ where
     }
 }
 
-impl EIController<NoClock, Configurable> {
+impl EIController<WithoutClock, Configurable> {
     /// Create an EIC Controller without a clock source
     ///
     /// This limits the EIC functionality
@@ -141,7 +128,10 @@ impl EIController<NoClock, Configurable> {
     /// Safe because you trade a singleton PAC struct for new singletons
     pub fn new_only_async(
         eic: crate::pac::EIC,
-    ) -> (Enabled<EIController<NoClock, Configurable>, U0>, Tokens) {
+    ) -> (
+        Enabled<EIController<WithoutClock, Configurable>, U0>,
+        Tokens,
+    ) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {
@@ -157,8 +147,6 @@ impl EIController<NoClock, Configurable> {
             (
                 Enabled::new(Self {
                     eic,
-                    // Create config register, matching reset state
-                    config: [EIConfigReg(0), EIConfigReg(0)],
                     clockmode: PhantomData,
                     _enablestate: PhantomData,
                 }),
@@ -206,13 +194,12 @@ where
         let lsb: usize = E::SENSELSB.into();
 
         // Read the register and parse it as a [`EIConfigReg`]
-        let mut config = EIConfigReg(self.0.eic.config[index].read().bits());
+        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
         // Modify only the relevant part of the configuration
-        config.set_bit_range(msb, lsb, sense as u8);
+        config_reg.set_bit_range(msb, lsb, sense as u8);
 
         // Write the configuration state to hardware
-        self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(config.bit_range(31, 0)) });
+        self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
     /// TODO
     pub(super) fn set_sense_mode_nmi(&self, sense: Sense) {
@@ -244,7 +231,6 @@ where
 
         Enabled::new(EIController {
             eic: self.0.eic,
-            config: self.0.config,
             clockmode: self.0.clockmode,
             _enablestate: PhantomData,
         })
@@ -262,7 +248,6 @@ where
 
         Enabled::new(EIController {
             eic: self.0.eic,
-            config: self.0.config,
             clockmode: self.0.clockmode,
             _enablestate: PhantomData,
         })
@@ -278,49 +263,14 @@ where
     /// Will clear all registers and leave the controller disabled
     /// Return the same kind that was configured previously
     /// #TODO, not verified, broken, disable for now
-    pub fn swrst(mut self) -> Self {
+    pub fn swrst(self) -> Self {
         self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
         // Wait until done
         self.syncbusy_swrst();
 
-        // Reset any stored state to default reset values
-        self.0.config = [EIConfigReg(0), EIConfigReg(0)];
         self
     }
 }
-
-/*
- *
- * TODO BROKEN, move to Extint and just require reference to EIController?
-impl<AK, N> Enabled<EIController<AK, Configurable>, N>
-where
-    AK: AnyClock,
-    N: Counter + PrivateDecrement,
-{
-    pub fn disable_ext_int<I, C, AM, AS, AE>(
-        self,
-        any_ext_int: impl AnyExtInt,
-    ) -> (
-        <Self as PrivateDecrement>::Dec,
-        Token<I::EINum>,
-        Pin<I, Interrupt<C>>,
-    )
-    where
-        I: GetEINum,
-        C: InterruptConfig,
-        AM: AnyMode,
-        AS: AnySenseMode,
-        AE: AnyExtInt<Num = I, Pin = C>,
-    {
-        //let extint: SpecificExtInt<AE>;
-        //let extint: any_ext_int;
-        //let extint: any_ext_int.into();
-        let extint = any_ext_int;
-
-        (self.dec(), extint.token, extint.pin)
-    }
-}
-*/
 
 impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
 where
@@ -335,7 +285,7 @@ where
     }
 }
 
-impl Enabled<EIController<NoClock, Configurable>, U0> {
+impl Enabled<EIController<WithoutClock, Configurable>, U0> {
     /// Disable and destroy the EIC controller
     pub fn destroy(self, _tokens: Tokens) -> crate::pac::EIC {
         self.0.eic
@@ -389,13 +339,38 @@ where
         pin: Pin<I, Interrupt<C>>,
     ) -> (
         <Self as PrivateIncrement>::Inc,
-        ExtInt<I, C, AsyncOnly, NoClock, SenseNone>,
+        ExtInt<I, C, AsyncOnly, WithoutClock, SenseNone>,
     )
     where
         I: GetEINum,
         C: InterruptConfig,
     {
         (self.inc(), ExtInt::new_async(token, pin))
+    }
+}
+
+impl<AK, N> Enabled<EIController<AK, Configurable>, N>
+where
+    AK: AnyClock,
+    N: Counter + PrivateDecrement,
+{
+    pub fn disable_ext_int<I, C, AM, AS, AE, AK2>(
+        self,
+        ext_int: ExtInt<I, C, AM, AK2, AS>,
+    ) -> (
+        <Self as PrivateDecrement>::Dec,
+        Token<I::EINum>,
+        Pin<I, Interrupt<C>>,
+    )
+    where
+        I: GetEINum,
+        C: InterruptConfig,
+        AM: AnyMode,
+        AS: AnySenseMode,
+        AK2: AnyClock,
+        AE: AnyExtInt<Num = I, Pin = C>,
+    {
+        (self.dec(), ext_int.token, ext_int.pin)
     }
 }
 
@@ -447,11 +422,12 @@ where
         let index: usize = E::OFFSET.into();
         let bitnum: usize = E::FILTEN.into();
 
-        // Set the FILTEN bit in the configuration state
-        self.0.config[index].set_bit(bitnum, true);
+        // Read the register and parse it as a [`EIConfigReg`]
+        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
+        config_reg.set_bit(bitnum, true);
+
         // Write the configuration state to hardware
-        self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
+        self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
 
     /// TODO
@@ -459,11 +435,12 @@ where
         let index: usize = E::OFFSET.into();
         let bitnum: usize = E::FILTEN.into();
 
-        // Set the FILTEN bit in the configuration state
-        self.0.config[index].set_bit(bitnum, false);
+        // Read the register and parse it as a [`EIConfigReg`]
+        let mut config_reg = EIConfigReg(self.0.eic.config[index].read().bits());
+        config_reg.set_bit(bitnum, false);
+
         // Write the configuration state to hardware
-        self.0.eic.config[index]
-            .write(|w| unsafe { w.bits(self.0.config[index].bit_range(31, 0)) });
+        self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
 
     /// TODO
@@ -536,12 +513,37 @@ where
         pin: Pin<I, Interrupt<C>>,
     ) -> (
         <Self as PrivateIncrement>::Inc,
-        NmiExtInt<I, C, AsyncOnly, NoClock, SenseNone>,
+        NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseNone>,
     )
     where
         I: NmiEI,
         C: InterruptConfig,
     {
         (self.inc(), NmiExtInt::new_async(token, pin))
+    }
+}
+
+impl<AK, N> Enabled<EIController<AK, Configurable>, N>
+where
+    AK: AnyClock,
+    N: Counter + PrivateDecrement,
+{
+    pub fn disable_ext_int_nmi<I, C, AM, AS, AE, AK2>(
+        self,
+        ext_int_nmi: NmiExtInt<I, C, AM, AK2, AS>,
+    ) -> (
+        <Self as PrivateDecrement>::Dec,
+        NmiToken,
+        Pin<I, Interrupt<C>>,
+    )
+    where
+        I: NmiEI,
+        C: InterruptConfig,
+        AM: AnyMode,
+        AS: AnySenseMode,
+        AK2: AnyClock,
+        AE: AnyExtInt<Num = I, Pin = C>,
+    {
+        (self.dec(), ext_int_nmi.token, ext_int_nmi.pin)
     }
 }

@@ -26,7 +26,9 @@ pub enum ExtMode {
     Normal = 0,
     AsyncOnly,
     Filtered,
+    FilteredAsync,
     Debounced,
+    DebouncedAsync,
 }
 
 /// TODO
@@ -41,12 +43,18 @@ pub enum AsyncOnly {}
 /// TODO
 pub enum Filtered {}
 /// TODO
+pub enum FilteredAsync {}
+/// TODO
 pub enum Debounced {}
+/// TODO
+pub enum DebouncedAsync {}
 
 impl Sealed for Normal {}
 impl Sealed for AsyncOnly {}
 impl Sealed for Filtered {}
+impl Sealed for FilteredAsync {}
 impl Sealed for Debounced {}
+impl Sealed for DebouncedAsync {}
 
 impl Mode for Normal {
     const MODE: ExtMode = ExtMode::Normal;
@@ -57,8 +65,14 @@ impl Mode for AsyncOnly {
 impl Mode for Filtered {
     const MODE: ExtMode = ExtMode::Filtered;
 }
+impl Mode for FilteredAsync {
+    const MODE: ExtMode = ExtMode::FilteredAsync;
+}
 impl Mode for Debounced {
     const MODE: ExtMode = ExtMode::Debounced;
+}
+impl Mode for DebouncedAsync {
+    const MODE: ExtMode = ExtMode::DebouncedAsync;
 }
 
 //==============================================================================
@@ -106,7 +120,9 @@ macro_rules! any_mode {
 any_mode!(Normal);
 any_mode!(AsyncOnly);
 any_mode!(Filtered);
+any_mode!(FilteredAsync);
 any_mode!(Debounced);
+any_mode!(DebouncedAsync);
 
 //==============================================================================
 // Sense
@@ -244,7 +260,7 @@ any_sense!(SenseHigh);
 any_sense!(SenseLow);
 
 //==============================================================================
-// Debouncer
+// Debouncer settings
 //==============================================================================
 
 /// TODO
@@ -272,8 +288,9 @@ pub trait EINum: Sealed {
     // Filten described by arithmetic series
     // 3+(n)*4
     const FILTEN: u8 = 3 + Self::NUM * 4;
-    // Sense described by the arithmetic series
-    // (n)*4
+    // Start of Sense slice described by the series
+    // (n)*4. Bitmask for Sense is 0b111,
+    // meaning MSB of sense is 2 "steps" from LSB
     const SENSELSB: u8 = Self::NUM * 4;
     const SENSEMSB: u8 = Self::NUM * 4 + 2;
     // Possibly other constants
@@ -293,36 +310,10 @@ seq!(N in 00..16 {
 #[doc = "Token type for ExtIntNMI"]
 pub enum EINMI {}
 impl Sealed for EINMI {}
-/*
-impl EINum for EINMI {
-    const NUM: u8 = 16;
-}
-*/
 
 //==============================================================================
 // Registers
 //==============================================================================
-
-macro_rules! set_sense_mode_help {
-    ($w:ident, $number:expr, $sense:ident, helper) => {
-        paste! {
-            $w.[<sense$number>]().bits($sense as u8)
-        }
-    };
-    ($w:ident, $number:expr, $sense:ident) => {
-        match $number {
-            0 => set_sense_mode_help!($w, 0, $sense, helper),
-            1 => set_sense_mode_help!($w, 1, $sense, helper),
-            2 => set_sense_mode_help!($w, 2, $sense, helper),
-            3 => set_sense_mode_help!($w, 3, $sense, helper),
-            4 => set_sense_mode_help!($w, 4, $sense, helper),
-            5 => set_sense_mode_help!($w, 5, $sense, helper),
-            6 => set_sense_mode_help!($w, 6, $sense, helper),
-            7 => set_sense_mode_help!($w, 7, $sense, helper),
-            _ => panic!(),
-        }
-    };
-}
 
 // Private struct that provides access to the EIC registers from
 // the ExtInt types. We must be careful about memory safety here
@@ -343,20 +334,10 @@ impl NmiRegisters {
             ei_num: PhantomData,
         }
     }
-
     /// TODO
     fn eic(&self) -> &RegisterBlock {
         unsafe { &*crate::pac::EIC::ptr() }
     }
-    /// TODO
-    fn set_sense_mode(&self, sense: Sense) {
-        // Does not use the [`NMISENSE_A`] enum,
-        // uses the custom [`Sense`] because it is identical
-        self.eic()
-            .nmictrl
-            .write(|w| unsafe { w.nmisense().bits(sense as u8) });
-    }
-
     /// TODO
     fn set_filter_mode(&self, usefilter: bool) {
         self.eic().nmictrl.write(|w| w.nmifilten().bit(usefilter));
@@ -365,7 +346,6 @@ impl NmiRegisters {
     fn set_async_mode(&self, useasync: bool) {
         self.eic().nmictrl.write(|w| w.nmiasynch().bit(useasync));
     }
-
     /// TODO
     fn clear_interrupt_status(&self) {
         self.eic().nmiflag.write(|w| w.nmi().set_bit());
@@ -418,12 +398,6 @@ impl<E: EINum> Registers<E> {
             .write(|w| unsafe { w.bits(E::MASK as u32) });
     }
 
-    fn set_sense_mode(&self, sense: Sense) {
-        let index: usize = E::OFFSET.into();
-        let number: usize = E::NUM.into();
-        self.eic().config[index].write(|w| unsafe { set_sense_mode_help!(w, number, sense) });
-    }
-
     // Can't add methods that access registers that share state
     // between different ExtInt. Those most be added to EIController
 }
@@ -456,6 +430,91 @@ bitfield::bitfield! {
     get_filten6, set_filten6: 27, 27;
     get_sense7, set_sense7: 30, 28;
     get_filten7, set_filten7: 31, 31;
+}
+
+//==============================================================================
+// Set sense mode helper macro
+//==============================================================================
+#[macro_export]
+macro_rules! set_sense_ext {
+    // For all regular ExtInt
+    ($self:ident, $I:ident, $extint:ident, $sense:ident) => {
+        paste! {
+            #[doc = "Set Input [`Sense`] to "$sense]
+            pub fn [<set_sense_$sense:lower>]<AK2, N>(
+                self,
+                // Used to enforce having access to EIController
+                eic: &Enabled<EIController<AK2, Configurable>, N>,
+                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
+                where
+                    AK2: AnyClock,
+                    N: Counter,
+            {
+                eic.set_sense_mode::<I::EINum>(Sense::$sense);
+
+                $extint {
+                    token: self.token,
+                    pin: self.pin,
+                    mode: PhantomData,
+                    clockmode: PhantomData,
+                    sensemode: PhantomData,
+                }
+            }
+        }
+    };
+}
+#[macro_export]
+macro_rules! set_sense_ext_nmi {
+    // For NMI case
+    ($self:ident, $extint:ident, $sense:ident) => {
+        paste! {
+            #[doc = "Set Input [`Sense`] to "$sense]
+            pub fn [<set_sense_$sense:lower>]<AK2, N>(
+                self,
+                // Used to enforce having access to EIController
+                eic: &Enabled<EIController<AK2, Configurable>, N>,
+                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
+                where
+                    AK2: AnyClock,
+                    N: Counter,
+            {
+                eic.set_sense_mode_nmi(Sense::$sense);
+
+                $extint {
+                    token: self.token,
+                    pin: self.pin,
+                    mode: PhantomData,
+                    clockmode: PhantomData,
+                    sensemode: PhantomData,
+                }
+            }
+        }
+    };
+    // For NMI Async case
+    (Async $self:ident, $extint:ident, $sense:ident) => {
+        paste! {
+            #[doc = "Set Input [`Sense`] to "$sense]
+            pub fn [<set_sense_$sense:lower>]<AK, N>(
+                self,
+                // Used to enforce having access to EIController
+                eic: &Enabled<EIController<AK, Configurable>, N>,
+                ) -> $extint<I, C, AsyncOnly, WithoutClock, [<Sense$sense>]>
+                where
+                    AK: AnyClock,
+                    N: Counter,
+            {
+                eic.set_sense_mode_nmi(Sense::$sense);
+
+                $extint {
+                    token: self.token,
+                    pin: self.pin,
+                    mode: PhantomData,
+                    clockmode: PhantomData,
+                    sensemode: PhantomData,
+                }
+            }
+        }
+    };
 }
 
 //==============================================================================
@@ -532,9 +591,9 @@ seq!(N in 00..16 {
 pub trait Clock: Sealed {}
 
 /// AsyncMode only allows asynchronous detection
-pub struct NoClock {}
-impl Sealed for NoClock {}
-impl Clock for NoClock {}
+pub struct WithoutClock {}
+impl Sealed for WithoutClock {}
+impl Clock for WithoutClock {}
 
 // When in WithClock, we have to store a clock resource
 /// SyncMode allows full EIC functionality
@@ -567,9 +626,9 @@ pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
 /// TODO
 pub type SpecificClock<K> = <K as AnyClock>::Mode;
 
-impl AnyClock for NoClock {
+impl AnyClock for WithoutClock {
     /// TODO
-    type Mode = NoClock;
+    type Mode = WithoutClock;
     type ClockSource = NoneT;
 }
 
@@ -581,14 +640,14 @@ where
     type ClockSource = CS;
 }
 
-impl AsRef<Self> for NoClock {
+impl AsRef<Self> for WithoutClock {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl AsMut<Self> for NoClock {
+impl AsMut<Self> for WithoutClock {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self

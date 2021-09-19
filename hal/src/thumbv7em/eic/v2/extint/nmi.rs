@@ -1,7 +1,7 @@
 use super::*;
 use crate::gpio::v2::InterruptConfig;
 // Macro for setting sense
-use crate::set_sense_ext;
+use crate::set_sense_ext_nmi;
 
 //==============================================================================
 // NmiExtInt
@@ -16,12 +16,13 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    pub(super) token: NmiToken,
-    pub(super) pin: Pin<I, Interrupt<C>>,
+    pub(in crate::thumbv7em::eic::v2) token: NmiToken,
+    pub(in crate::thumbv7em::eic::v2) pin: Pin<I, Interrupt<C>>,
     mode: PhantomData<AM>,
     clockmode: PhantomData<AK>,
     sensemode: PhantomData<AS>,
 }
+
 // Sealed for NmiExtInt
 impl<I, C, AM, AK, AS> Sealed for NmiExtInt<I, C, AM, AK, AS>
 where
@@ -37,7 +38,7 @@ impl<I, C, AM, CS> NmiExtInt<I, C, AM, WithClock<CS>, SenseNone>
 where
     I: NmiEI,
     C: InterruptConfig,
-    AM: AnyMode,
+    AM: AnyMode<Mode = Normal>,
     CS: EIClkSrc,
 {
     /// Create initial synchronous NmiExtInt
@@ -53,7 +54,7 @@ where
     }
 }
 
-impl<I, AM, C> NmiExtInt<I, C, AM, NoClock, SenseNone>
+impl<I, AM, C> NmiExtInt<I, C, AM, WithoutClock, SenseNone>
 where
     I: NmiEI,
     C: InterruptConfig,
@@ -64,7 +65,7 @@ where
     pub(crate) fn new_async(
         token: NmiToken,
         pin: Pin<I, Interrupt<C>>,
-    ) -> NmiExtInt<I, C, AM, NoClock, SenseNone> {
+    ) -> NmiExtInt<I, C, AM, WithoutClock, SenseNone> {
         // #TODO
 
         // Need to set async flag
@@ -276,16 +277,27 @@ where
             sensemode: PhantomData,
         }
     }
-    set_sense_ext! {self, NmiExtInt, None}
-    set_sense_ext! {self, NmiExtInt, High}
-    set_sense_ext! {self, NmiExtInt, Low}
-    set_sense_ext! {self, NmiExtInt, Both}
-    set_sense_ext! {self, NmiExtInt, Rise}
-    set_sense_ext! {self, NmiExtInt, Fall}
+    set_sense_ext_nmi! {self, NmiExtInt, None}
+    set_sense_ext_nmi! {self, NmiExtInt, High}
+    //set_sense_ext_nmi! {self, NmiExtInt, Low}
+    set_sense_ext_nmi! {self, NmiExtInt, Both}
+    set_sense_ext_nmi! {self, NmiExtInt, Rise}
+    set_sense_ext_nmi! {self, NmiExtInt, Fall}
 
-    
     /// TODO
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
     }
+}
+
+impl<I, C> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseLow>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+{
+    // The only SenseModes supported in OnlyAsync
+    // are of the kind "LevelDetectMode"
+    //set_sense_ext_nmi! {self, NmiExtInt, None Async}
+    //set_sense_ext_nmi! {self, NmiExtInt, Hig Async}
+    set_sense_ext_nmi! {Async self, NmiExtInt, Low}
 }
