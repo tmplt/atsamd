@@ -22,7 +22,7 @@ pub use crate::eic::v2::eicontroller::*;
 
 /// Detection Mode
 /// TODO
-pub enum ExtMode {
+pub enum EIMode {
     Normal = 0,
     AsyncOnly,
     Filtered,
@@ -33,7 +33,7 @@ pub enum ExtMode {
 
 /// TODO
 pub trait Mode: Sealed {
-    const MODE: ExtMode;
+    const MODE: EIMode;
 }
 
 /// TODO
@@ -57,22 +57,22 @@ impl Sealed for Debounced {}
 impl Sealed for DebouncedAsync {}
 
 impl Mode for Normal {
-    const MODE: ExtMode = ExtMode::Normal;
+    const MODE: EIMode = EIMode::Normal;
 }
 impl Mode for AsyncOnly {
-    const MODE: ExtMode = ExtMode::AsyncOnly;
+    const MODE: EIMode = EIMode::AsyncOnly;
 }
 impl Mode for Filtered {
-    const MODE: ExtMode = ExtMode::Filtered;
+    const MODE: EIMode = EIMode::Filtered;
 }
 impl Mode for FilteredAsync {
-    const MODE: ExtMode = ExtMode::FilteredAsync;
+    const MODE: EIMode = EIMode::FilteredAsync;
 }
 impl Mode for Debounced {
-    const MODE: ExtMode = ExtMode::Debounced;
+    const MODE: EIMode = EIMode::Debounced;
 }
 impl Mode for DebouncedAsync {
-    const MODE: ExtMode = ExtMode::DebouncedAsync;
+    const MODE: EIMode = EIMode::DebouncedAsync;
 }
 
 //==============================================================================
