@@ -4,21 +4,147 @@ use bitfield::*;
 
 use typenum::U0;
 
-// Maybe these types are useful enough to get included into crate::typelevel?
-use crate::clock::types::{
-    Counter, Decrement, Enabled, Increment, PrivateDecrement, PrivateIncrement,
-};
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
+// Copied from crate::clock::v2::types, just importing from
+// there causes cargo doc to combine clocking and EIC
+// This needs revisiting
+use crate::clock::types::{Counter as ClockCounter, Decrement, Enabled as ClockEnabled, Increment};
+use types::{Counter, Enabled, PrivateDecrement, PrivateIncrement};
 
 use crate::eic::v2::*;
 
 use super::extint::*;
 
 //==============================================================================
+// Clock
+//==============================================================================
+
+// Synchronous vs. asynchronous detection
+/// Trait describing which clock-source the [`EIController`]
+/// can use
+///
+/// Either with an external clock source, or without
+///
+/// Supported external clock sources are:
+///
+/// * [`CLK_GCLK`][crate::clock::v2::gclk]
+/// * [`CLK_ULP32K`][crate::clock::v2::osculp32k]
+///
+/// This clock selection is written to hardware,
+/// `EIC->CTRLA->CKSEL`
+pub trait Clock: Sealed {}
+
+/// Only allows asynchronous detection
+pub struct WithoutClock {}
+impl Sealed for WithoutClock {}
+impl Clock for WithoutClock {}
+
+// When in WithClock, we have to store a clock resource
+/// This mode allows full EIC functionality
+///
+/// Required if:
+/// * The NMI is using edge detection or filtering
+/// * One EXTINT uses filtering
+/// * One EXTINT uses synchronous edge detection
+/// * One EXTINT uses debouncing
+pub struct WithClock<C: EIClkSrc> {
+    /// Clock resource
+    _clock: PhantomData<C>,
+}
+impl<C: EIClkSrc> Sealed for WithClock<C> {}
+impl<C: EIClkSrc> Clock for WithClock<C> {}
+
+/// Type class for all possible [`Clock`] types
+///
+/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
+/// [`Clock`] types. See the `AnyKind` documentation for more details on the
+/// pattern.
+///
+/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
+/// [type class]: crate::typelevel#type-classes
+pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
+    type Mode: Clock;
+    type ClockSource: EIClkSrc;
+}
+
+/// Type alias for extracting a specific clock from [`AnyClock`]
+pub type SpecificClock<K> = <K as AnyClock>::Mode;
+
+impl AnyClock for WithoutClock {
+    type Mode = WithoutClock;
+    type ClockSource = NoneT;
+}
+
+impl<CS> AnyClock for WithClock<CS>
+where
+    CS: EIClkSrc,
+{
+    type Mode = WithClock<CS>;
+    type ClockSource = CS;
+}
+
+impl AsRef<Self> for WithoutClock {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl AsMut<Self> for WithoutClock {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<CS: EIClkSrc> AsRef<Self> for WithClock<CS> {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<CS: EIClkSrc> AsMut<Self> for WithClock<CS> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+/// EIController clock source
+///
+/// See [`Clock`]
+pub trait EIClkSrc: Sealed {
+    const CKSEL: CKSEL_A;
+}
+
+// Peripheral channel clock, routed from a GCLK
+impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
+    /// Peripheral channel GCLK_EIC used to clock EIC
+    const CKSEL: CKSEL_A = CKSEL_A::CLK_GCLK;
+}
+
+// Ultra-low power oscillator can be used instead
+impl<Y: Output1k, N: ClockCounter> EIClkSrc for ClockEnabled<OscUlp32k<Active32k, Y>, N> {
+    /// Ultra-low power OSCULP32K used to clock EIC
+    const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
+}
+
+impl EIClkSrc for NoneT {
+    /// Used in the case of [`WithoutClock`]
+    ///
+    /// This is the default value at reset,
+    /// so even without a clock this reflects hardware
+    ///
+    /// This is a workaround to be able to extract ClockSource
+    const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
+}
+
+//==============================================================================
 // EIController Enabled / Enable Protect
 //==============================================================================
 
-/// Used to enforce "Enable Protect"
+/// "Enable Protect" mode is active
 ///
 /// When `CTRL.ENABLE` is set registers
 ///
@@ -35,7 +161,7 @@ use super::extint::*;
 /// than `None`
 pub enum Protected {}
 
-/// Used to enforce "Enable Protect"
+/// "Enable Protect" mode is inactive
 ///
 /// When `CTRL.ENABLE` is cleared registers
 ///
@@ -51,7 +177,12 @@ pub enum Configurable {}
 impl Sealed for Protected {}
 impl Sealed for Configurable {}
 
-/// Used to encode EIController enabled state
+/// Used to encode EIController "Enable protect" state
+///
+/// When [`Protected`] the EIC is active and all [`ExtInt`]s
+/// acts as configured. When set to [`Configurable`]
+/// they are dormant, with the exception of [`NmiExtInt`]
+/// which is active whenever [`SenseMode::SENSE`] differ from `None`.
 pub trait EnableProtection: Sealed {}
 
 impl EnableProtection for Protected {}
@@ -63,10 +194,13 @@ impl EnableProtection for Configurable {}
 // Struct to represent the external interrupt controller
 // You need exclusive access to this to set registers that
 // share multiple pins, like the Sense configuration register
-/// TODO
 /// Controller interface for External Interrupt Controller (EIC)
 ///
 /// Used to create up to 16 [`ExtInt`] and one [`NmiExtInt`]
+///
+/// EIController has access to all of EIC registers
+///
+/// TODO
 pub struct EIController<AK, EP>
 where
     AK: AnyClock,
@@ -85,7 +219,7 @@ where
     ///
     /// This allows for full EIC functionality
     ///
-    /// Safety
+    /// # Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
     pub fn new(
@@ -124,7 +258,7 @@ impl EIController<WithoutClock, Configurable> {
     ///
     /// This limits the EIC functionality
     ///
-    /// Safety
+    /// # Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
     pub fn new_only_async(
@@ -209,7 +343,9 @@ where
         // Write the configuration state to hardware
         self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
-    /// TODO
+    /// Change NmiExtInt sensemode
+    ///
+    /// Available modes: see [`Sense`]
     pub(super) fn set_sense_mode_nmi(&self, sense: Sense) {
         // Write the configuration state to hardware
         self.0
@@ -218,7 +354,9 @@ where
             .write(|w| unsafe { w.nmisense().bits(sense as u8) });
     }
 
-    /// TODO
+    /// Configure Event Output for ExtInt
+    ///
+    /// Requires that the Event System (EVSYS) peripheral is configured
     pub(super) fn set_event_output<E: EINum>(&self, set_event_output: bool) {
         let val = self.0.eic.evctrl.read().bits();
 
@@ -231,8 +369,10 @@ where
         self.0.eic.evctrl.write(|w| unsafe { w.bits(data) });
     }
 
-    /// Start EIC controller by writing the enable bit
-    /// this "finalizes" the configuration phase
+    /// Finalize the configuration phase and activate EIC
+    ///
+    /// This "finalizes" the configuration phase meaning
+    /// further modifications are not allowed.
     pub fn finalize(self) -> Enabled<EIController<AK, Protected>, N> {
         self.0.eic.ctrla.modify(|_, w| w.enable().set_bit());
         self.syncbusy_enable();
@@ -250,6 +390,7 @@ where
     AK: AnyClock,
     N: Counter,
 {
+    /// Disable the EIC and return to a [`Configurable`] state
     pub fn disable(self) -> Enabled<EIController<AK, Configurable>, N> {
         self.0.eic.ctrla.modify(|_, w| w.enable().clear_bit());
         self.syncbusy_enable();
@@ -269,13 +410,10 @@ where
     /// Softare reset the EIC controller
     ///
     /// Will clear all registers and leave the controller disabled
-    /// Return the same kind that was configured previously
-    /// #TODO, not verified, broken, disable for now
     pub fn swrst(self) -> Self {
         self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
         // Wait until done
         self.syncbusy_swrst();
-
         self
     }
 }
@@ -305,7 +443,6 @@ where
     CS: EIClkSrc,
     N: Counter + PrivateIncrement,
 {
-    /// TODO
     /// Create an EIController with a clocksource
     ///
     /// Capable of using all ExtInt detection modes and features
@@ -337,7 +474,6 @@ where
     K: AnyClock,
     N: Counter + PrivateIncrement,
 {
-    /// TODO
     /// Create an EIController without a clocksource
     ///
     /// Limited capabilities, restricted to only using [`AsyncOnly`] mode
@@ -362,6 +498,7 @@ where
     AK: AnyClock,
     N: Counter + PrivateDecrement,
 {
+    /// TODO
     pub fn disable_ext_int<I, C, AM, AS, AE, AK2>(
         self,
         ext_int: ExtInt<I, C, AM, AK2, AS>,
@@ -407,6 +544,7 @@ where
         });
     }
 
+    /// TODO
     pub(super) fn set_debouncer_settings<E: EINum>(&self, settings: &DebouncerSettings) {
         self.0.eic.dprescaler.write({
             |w| {
@@ -536,6 +674,7 @@ where
     AK: AnyClock,
     N: Counter + PrivateDecrement,
 {
+    /// TODO
     pub fn disable_ext_int_nmi<I, C, AM, AS, AE, AK2>(
         self,
         ext_int_nmi: NmiExtInt<I, C, AM, AK2, AS>,

@@ -268,6 +268,8 @@ any_sense!(SenseLow);
 // The pin-level struct
 // It must be generic over PinId, Interrupt PinMode configuration
 // (i.e. Floating, PullUp, or PullDown)
+/// External Interrupt (ExtInt) struct
+///
 /// TODO
 pub struct ExtInt<I, C, AM, AK, AS>
 where

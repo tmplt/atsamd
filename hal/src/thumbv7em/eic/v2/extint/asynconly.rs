@@ -14,10 +14,10 @@ where
         token: Token<I::EINum>,
         pin: Pin<I, Interrupt<C>>,
     ) -> ExtInt<I, C, AM, WithoutClock, SenseNone> {
-        let bitnum: usize = <I as GetEINum>::EINum::NUM.into();
+        let bitnum: usize = I::EINum::NUM.into();
 
         // Read the current asynch register
-        let mut asynch_reg = EIAsyncReg(token.regs.eic().asynch.read().bits() as u16);
+        let mut asynch_reg = EIReg(token.regs.eic().asynch.read().bits() as u16);
         // Enable the asynch-bit
         asynch_reg.set_bit(bitnum, true);
 

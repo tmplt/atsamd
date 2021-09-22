@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use paste::paste;
 use seq_macro::seq;
 
-use crate::clock::types::{Counter, Enabled};
 use crate::clock::v2::osculp32k::OscUlp32k;
 use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
 use crate::clock::v2::rtc::{Active32k, Output1k};
@@ -13,15 +12,16 @@ use crate::typelevel::{Is, NoneT, Sealed};
 
 pub mod eicontroller;
 pub mod extint;
+pub mod types;
 
 pub use crate::eic::v2::eicontroller::*;
-
+use types::{Counter, Enabled};
 
 //==============================================================================
 // Debouncer settings
 //==============================================================================
 
-/// TODO
+/// ExtInt debounce mode settings
 pub struct DebouncerSettings {
     pub tickon: TICKON_A,
     pub prescaler0: PRESCALER0_A,
@@ -30,26 +30,45 @@ pub struct DebouncerSettings {
     pub states1: STATES1_A,
 }
 
+impl DebouncerSettings {
+    pub fn set_tickon(&mut self, tick: TICKON_A) {
+        self.tickon = tick;
+    }
+}
+
 // EINum
 //==============================================================================
 
-// Type-level enum for the ExtInt number
-// Each PinId is mapped to one and only one
-/// TODO
+/// Type-level enum for the ExtInt number
+/// Each PinId is mapped to one and only one
 pub trait EINum: Sealed {
+    /// Unique identifier
     const NUM: u8;
+    /// Filter and sense configuration is split in two parts,
+    /// `EIC->CONFIG0` and `EIC->CONFIG1`.
+    ///
+    /// OFFSET is used to index into the abstraction provided
+    /// by svd2rust.
+    ///
+    /// OFFSET = 0 holds first 0..7 `FILTENx` and `SENSEx`
+    ///
+    /// OFFSET = 1 holds remaining 8..15 `FILTENx` and `SENSEx`
     const OFFSET: u8 = match Self::NUM {
         0..=7 => 0,
         8.. => 1,
     };
+    /// Bitmask associated with NUM
     const MASK: u16 = 1 << Self::NUM;
     // Filten described by arithmetic series
     // 3+(n)*4
+    /// Offset into `EIC->CONFIG` for `FILTEN`
     const FILTEN: u8 = 3 + Self::NUM * 4;
     // Start of Sense slice described by the series
     // (n)*4. Bitmask for Sense is 0b111,
     // meaning MSB of sense is 2 "steps" from LSB
+    /// LSB of `SENSEx` for this `NUM`
     const SENSELSB: u8 = Self::NUM * 4;
+    /// MSB of `SENSEx` for this `NUM`
     const SENSEMSB: u8 = Self::NUM * 4 + 2;
     // Possibly other constants
 }
@@ -73,83 +92,114 @@ impl Sealed for EINMI {}
 // Registers
 //==============================================================================
 
-// Private struct that provides access to the EIC registers from
-// the ExtInt types. We must be careful about memory safety here
-/// TODO
+/// Private struct that provides access to the EIC registers from
+/// the ExtInt types. We must be careful about memory safety here
 struct Registers<E: EINum> {
     ei_num: PhantomData<E>,
 }
 
+/// Private struct that provides access to the EIC registers from
+/// the ExtIntNMI type
 struct NmiRegisters {
-    ei_num: PhantomData<NoneT>,
+    ei_nmi: PhantomData<NoneT>,
 }
 
 // Special for NMI
 impl NmiRegisters {
-    /// TODO
+    /// Create a new register associated with
+    /// Non-Maskable External Interrupt (NmiExtInt)
+    ///
+    /// # Safety
+    /// Unsafe because you must make there is only one copy
+    /// of Registers for each unique E
     unsafe fn new() -> Self {
         NmiRegisters {
-            ei_num: PhantomData,
+            ei_nmi: PhantomData,
         }
     }
-    /// TODO
+    /// Direct reference to EIC [`RegisterBlock`]
     fn eic(&self) -> &RegisterBlock {
         unsafe { &*crate::pac::EIC::ptr() }
     }
-    /// TODO
+    /// Enable or disable filtering mode
+    ///
+    /// Requires clocking via `GCLK_EIC` or `CLK_ULP32K`
     fn set_filter_mode(&self, usefilter: bool) {
         self.eic().nmictrl.write(|w| w.nmifilten().bit(usefilter));
     }
-    /// TODO
+    /// Control `Async` mode of [`NmiExtInt`]
+    ///
+    /// ## Edge Detection mode
+    ///
+    /// ### Async mode on
+    ///
+    /// No external clock required, sets `NMIFLAG` directly
+    ///
+    /// Available in `Sleep` and `Standby` sleep modes
+    ///
+    /// ### Async mode off
+    ///
+    /// External clock required, sets `NMIFLAG` when the last
+    /// sampled state differs from the previous state
+    ///
+    /// ##
     fn set_async_mode(&self, useasync: bool) {
         self.eic().nmictrl.write(|w| w.nmiasynch().bit(useasync));
     }
-    /// TODO
+    /// Clear the interrupt
     fn clear_interrupt_status(&self) {
         self.eic().nmiflag.write(|w| w.nmi().set_bit());
     }
 }
 
 impl<E: EINum> Registers<E> {
-    // Unsafe because you must make there is only one copy
-    // of Registers for each unique E
-    /// TODO
+    /// Create a new register associated with External Interrupt (ExtInt)
+    ///
+    /// # Safety
+    /// Unsafe because you must make there is only one copy
+    /// of Registers for each unique E
     unsafe fn new() -> Self {
         Registers {
             ei_num: PhantomData,
         }
     }
 
-    /// TODO
+    /// Direct reference to EIC [`RegisterBlock`]
     fn eic(&self) -> &RegisterBlock {
         unsafe { &*crate::pac::EIC::ptr() }
     }
 
-    /// TODO
+    /// EIC Pinstate return the state of the debounced external interrupt
+    /// TODO, really only the debounced?
     fn pin_state(&self) -> bool {
         let state = self.eic().pinstate.read().pinstate().bits();
         (state & E::MASK) != 0
     }
 
-    /// TODO
+    /// Enable the interrupt of this ExtInt
     fn enable_interrupt(&self) {
         self.eic()
             .intenset
             .write(|w| unsafe { w.bits(E::MASK as u32) });
     }
 
-    /// TODO
+    /// Disable the interrupt of this ExtInt
     fn disable_interrupt(&self) {
         self.eic()
             .intenclr
             .write(|w| unsafe { w.bits(E::MASK as u32) });
     }
 
-    /// TODO
+    /// Read if interrupt has triggered
+    ///
+    /// Returning true indicates that ExtInt triggered with current settings
+    /// If interrupts were enabled an interrupt would also have been triggered
     fn get_interrupt_status(&self) -> bool {
         let state = self.eic().intflag.read().extint().bits();
         (state & E::MASK) != 0
     }
+
+    /// Clear the interrupt status for this ExtInt
     fn clear_interrupt_status(&self) {
         self.eic()
             .intflag
@@ -191,29 +241,37 @@ bitfield::bitfield! {
 }
 
 bitfield::bitfield! {
-    /// Register description for EIC Control register
+    /// Register description for multiple EIC registers
     ///
-    /// Control consists of two registers, part 1 and 2
-    /// both sharing the same layout.
-    pub struct EIAsyncReg(u16);
+    /// * EVCTRL
+    /// * INTENCLR
+    /// * INTENSET
+    /// * INTFLAG
+    /// * ASYNCH
+    /// * DEBOUNCEN
+    /// * PINSTATE
+    ///
+    /// Each bit from 0 to 16 corresponds directly to
+    /// [`EINum::NUM`]
+    pub struct EIReg(u16);
     impl Debug;
     u8;
-    get_asynch0, set_asynch0: 0, 0;
-    get_asynch1, set_asynch1: 1, 1;
-    get_asynch2, set_asynch2: 2, 2;
-    get_asynch3, set_asynch3: 3, 3;
-    get_asynch4, set_asynch4: 4, 4;
-    get_asynch5, set_asynch5: 5, 5;
-    get_asynch6, set_asynch6: 6, 6;
-    get_asynch7, set_asynch7: 7, 7;
-    get_asynch8, set_asynch8: 8, 8;
-    get_asynch9, set_asynch9: 9, 9;
-    get_asynch10, set_asynch10: 10, 10;
-    get_asynch11, set_asynch11: 11, 11;
-    get_asynch12, set_asynch12: 12, 12;
-    get_asynch13, set_asynch13: 13, 13;
-    get_asynch14, set_asynch14: 14, 14;
-    get_asynch15, set_asynch15: 15, 15;
+    get_0, set_0: 0, 0;
+    get_1, set_1: 1, 1;
+    get_2, set_2: 2, 2;
+    get_3, set_3: 3, 3;
+    get_4, set_4: 4, 4;
+    get_5, set_5: 5, 5;
+    get_6, set_6: 6, 6;
+    get_7, set_7: 7, 7;
+    get_8, set_8: 8, 8;
+    get_9, set_9: 9, 9;
+    get_10, set_10: 10, 10;
+    get_11, set_11: 11, 11;
+    get_12, set_12: 12, 12;
+    get_13, set_13: 13, 13;
+    get_14, set_14: 14, 14;
+    get_15, set_15: 15, 15;
 }
 
 //==============================================================================
@@ -257,7 +315,7 @@ macro_rules! set_sense_ext_nmi {
                 self,
                 // Used to enforce having access to EIController
                 eic: &Enabled<EIController<AK2, Configurable>, N>,
-                ) -> $extint<I, C, AM, AK, [<Sense$sense>]>
+                ) -> $extint<I, C, AM, AK2, [<Sense$sense>]>
                 where
                     AK2: AnyClock,
                     N: Counter,
@@ -278,13 +336,13 @@ macro_rules! set_sense_ext_nmi {
     (Async $self:ident, $extint:ident, $sense:ident) => {
         paste! {
             #[doc = "Set Input [`Sense`] to "$sense]
-            pub fn [<set_sense_$sense:lower>]<AK, N>(
+            pub fn [<set_sense_$sense:lower>]<AK2, N>(
                 self,
                 // Used to enforce having access to EIController
-                eic: &Enabled<EIController<AK, Configurable>, N>,
+                eic: &Enabled<EIController<AK2, Configurable>, N>,
                 ) -> $extint<I, C, AsyncOnly, WithoutClock, [<Sense$sense>]>
                 where
-                    AK: AnyClock,
+                    AK2: AnyClock,
                     N: Counter,
             {
                 eic.set_sense_mode_nmi(Sense::$sense);
@@ -309,30 +367,41 @@ macro_rules! set_sense_ext_nmi {
 // We need to create exactly 16 of these at boot.
 // A token will be consumed when creating an ExtInt.
 // This will prevent multiple pins from using the same interrupt
-/// TODO
+/// Token struct, each token associated with [`EINum`] ensures
+/// that only 16 ExtInts can be created
 pub struct Token<E: EINum> {
     regs: Registers<E>,
 }
+
+impl<E: EINum> Token<E> {
+    // Unsafe because you must make sure each Token is a singleton
+    /// Create a new token
+    ///
+    /// # Safety
+    ///
+    /// Each Token must be a singleton
+    unsafe fn new() -> Self {
+        Token {
+            regs: Registers::new(),
+        }
+    }
+}
+
+/// NmiToken struct, this token associated with the Non-Maskable Interrupt (NMI)
 pub struct NmiToken {
     regs: NmiRegisters,
 }
 
 impl NmiToken {
     // Unsafe because you must make sure each NmiToken is a singleton
-    /// TODO
+    /// Create a new token
+    ///
+    /// # Safety
+    ///
+    /// Each NmiToken must be a singleton
     unsafe fn new() -> Self {
         NmiToken {
             regs: NmiRegisters::new(),
-        }
-    }
-}
-
-impl<E: EINum> Token<E> {
-    // Unsafe because you must make sure each Token is a singleton
-    /// TODO
-    unsafe fn new() -> Self {
-        Token {
-            regs: Registers::new(),
         }
     }
 }
@@ -353,7 +422,11 @@ seq!(N in 00..16 {
 
         impl Tokens {
             // Unsafe because you must make sure each Token is a singleton
-            /// TODO
+            /// Create 16 tokens, one for each ExtInt and one for NmiExtInt.
+            ///
+            /// # Safety
+            ///
+            /// Each token must be a singleton
             unsafe fn new() -> Self {
                 Tokens {
                     #(
@@ -365,117 +438,6 @@ seq!(N in 00..16 {
         }
     }
 });
-
-//==============================================================================
-// Clock
-//==============================================================================
-
-// Synchronous vs. asynchronous detection
-/// TODO
-pub trait Clock: Sealed {}
-
-/// AsyncMode only allows asynchronous detection
-pub struct WithoutClock {}
-impl Sealed for WithoutClock {}
-impl Clock for WithoutClock {}
-
-// When in WithClock, we have to store a clock resource
-/// SyncMode allows full EIC functionality
-///
-/// Required if:
-/// * The NMI Using edge detection or filtering
-/// * One EXTINT uses filtering
-/// * One EXTINT uses synchronous edge detection
-/// * One EXTINT uses debouncing
-pub struct WithClock<C: EIClkSrc> {
-    /// Clock resource
-    _clock: PhantomData<C>,
-}
-impl<C: EIClkSrc> Sealed for WithClock<C> {}
-impl<C: EIClkSrc> Clock for WithClock<C> {}
-
-/// Type class for all possible [`Clock`] types
-///
-/// This trait uses the [`AnyKind`] trait pattern to create a [type class] for
-/// [`Clock`] types. See the `AnyKind` documentation for more details on the
-/// pattern.
-///
-/// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
-/// [type class]: crate::typelevel#type-classes
-pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
-    type Mode: Clock;
-    type ClockSource: EIClkSrc;
-}
-
-/// TODO
-pub type SpecificClock<K> = <K as AnyClock>::Mode;
-
-impl AnyClock for WithoutClock {
-    /// TODO
-    type Mode = WithoutClock;
-    type ClockSource = NoneT;
-}
-
-impl<CS> AnyClock for WithClock<CS>
-where
-    CS: EIClkSrc,
-{
-    type Mode = WithClock<CS>;
-    type ClockSource = CS;
-}
-
-impl AsRef<Self> for WithoutClock {
-    #[inline]
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl AsMut<Self> for WithoutClock {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-
-impl<CS: EIClkSrc> AsRef<Self> for WithClock<CS> {
-    #[inline]
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl<CS: EIClkSrc> AsMut<Self> for WithClock<CS> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-
-// EI clock source for synchronous detection modes
-/// TODO
-pub trait EIClkSrc: Sealed {
-    const CKSEL: CKSEL_A;
-}
-
-// Peripheral channel clock, routed from a GCLK
-impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
-    /// TODO
-    const CKSEL: CKSEL_A = CKSEL_A::CLK_GCLK;
-}
-
-// Ultra-low power oscillator can be used instead
-impl<Y: Output1k, N: Counter> EIClkSrc for Enabled<OscUlp32k<Active32k, Y>, N> {
-    /// TODO
-    const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
-}
-
-impl EIClkSrc for NoneT {
-    /// TODO
-    /// This is the default value at reset
-    /// This is a workaround to be able to extract ClockSource
-    const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
-}
 
 //==============================================================================
 // GetEINum

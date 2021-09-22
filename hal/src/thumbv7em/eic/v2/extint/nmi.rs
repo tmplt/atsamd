@@ -7,6 +7,8 @@ use crate::set_sense_ext_nmi;
 // NmiExtInt
 //==============================================================================
 
+/// Non-Maskable Interrupt External Interrupt struct
+///
 /// TODO
 pub struct NmiExtInt<I, C, AM, AK, AS>
 where
@@ -66,10 +68,11 @@ where
         token: NmiToken,
         pin: Pin<I, Interrupt<C>>,
     ) -> NmiExtInt<I, C, AM, WithoutClock, SenseNone> {
-        // #TODO
-
-        // Need to set async flag
-        token.regs.set_async_mode(true);
+        // TODO FIXME
+        // Should it be assumed that async mode is already set
+        // on creation?
+        // Set async flag
+        //token.regs.set_async_mode(true);
         NmiExtInt {
             token,
             pin,
@@ -84,7 +87,7 @@ impl<I, C, AM, AK> NmiExtInt<I, C, AM, AK, SenseLow>
 where
     I: NmiEI,
     C: InterruptConfig,
-    AM: AnyMode<Mode = Normal>,
+    AM: AnyMode<Mode = AsyncOnly>,
     AK: AnyClock,
 {
     /// TODO
@@ -198,6 +201,8 @@ where
         AM2: AnyMode<Mode = Filtered>,
     {
         self.token.regs.set_filter_mode(true);
+        // Async is never true when filtering
+        self.token.regs.set_async_mode(false);
 
         NmiExtInt {
             token: self.token,
@@ -277,27 +282,113 @@ where
             sensemode: PhantomData,
         }
     }
-    set_sense_ext_nmi! {self, NmiExtInt, None}
-    set_sense_ext_nmi! {self, NmiExtInt, High}
-    //set_sense_ext_nmi! {self, NmiExtInt, Low}
-    set_sense_ext_nmi! {self, NmiExtInt, Both}
-    set_sense_ext_nmi! {self, NmiExtInt, Rise}
-    set_sense_ext_nmi! {self, NmiExtInt, Fall}
 
-    /// TODO
+    /// Clear the ExtIntNMI interrupt
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
     }
 }
 
+impl<I, C> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseNone>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+{
+    // Allow switching to SenseLow or SenseHigh from SenseNone
+    set_sense_ext_nmi! {Async self, NmiExtInt, High}
+    set_sense_ext_nmi! {Async self, NmiExtInt, Low}
+}
 impl<I, C> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseLow>
 where
     I: NmiEI,
     C: InterruptConfig,
 {
-    // The only SenseModes supported in OnlyAsync
-    // are of the kind "LevelDetectMode"
-    //set_sense_ext_nmi! {self, NmiExtInt, None Async}
-    //set_sense_ext_nmi! {self, NmiExtInt, Hig Async}
+    // Allow switching to SenseHigh from SenseLow
+    set_sense_ext_nmi! {Async self, NmiExtInt, High}
+    // And back to SenseNone
+    set_sense_ext_nmi! {Async self, NmiExtInt, None}
+}
+impl<I, C> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseHigh>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+{
+    // Allow switching to SenseLow from SenseHigh
     set_sense_ext_nmi! {Async self, NmiExtInt, Low}
+    // And back to SenseNone
+    set_sense_ext_nmi! {Async self, NmiExtInt, None}
+}
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseLow>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // Allow switching to SenseLow from SenseHigh
+    set_sense_ext_nmi! {self, NmiExtInt, High}
+}
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseHigh>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // Allow switching to SenseHigh from SenseLow
+    set_sense_ext_nmi! {self, NmiExtInt, Low}
+}
+
+// EdgeDetect
+
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseBoth>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // A clock source is present, all other EdgeDetect senses are available
+    set_sense_ext_nmi! {self, NmiExtInt, Rise}
+    set_sense_ext_nmi! {self, NmiExtInt, Fall}
+    // And back to SenseNone
+    set_sense_ext_nmi! {self, NmiExtInt, None}
+}
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseRise>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // A clock source is present, all other EdgeDetect senses are available
+    set_sense_ext_nmi! {self, NmiExtInt, Both}
+    set_sense_ext_nmi! {self, NmiExtInt, Fall}
+    // And back to SenseNone
+    set_sense_ext_nmi! {self, NmiExtInt, None}
+}
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseFall>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // A clock source is present, all other EdgeDetect senses are available
+    set_sense_ext_nmi! {self, NmiExtInt, Both}
+    set_sense_ext_nmi! {self, NmiExtInt, Rise}
+    // And back to SenseNone
+    set_sense_ext_nmi! {self, NmiExtInt, None}
+}
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseNone>
+where
+    I: NmiEI,
+    C: InterruptConfig,
+    AM: AnyMode,
+    CS: EIClkSrc,
+{
+    // A clock source is present, all other EdgeDetect senses are available
+    set_sense_ext_nmi! {self, NmiExtInt, Both}
+    set_sense_ext_nmi! {self, NmiExtInt, Rise}
+    set_sense_ext_nmi! {self, NmiExtInt, Fall}
 }
