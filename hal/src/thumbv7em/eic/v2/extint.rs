@@ -22,8 +22,7 @@ use crate::set_sense_ext;
 // Mode
 //==============================================================================
 
-/// Detection Mode
-/// TODO
+/// ExtInt Detection Mode
 pub enum EIMode {
     Normal = 0,
     AsyncOnly,
@@ -33,22 +32,25 @@ pub enum EIMode {
     DebouncedAsync,
 }
 
-/// TODO
+/// Trait expressing ExtInt Detection Mode
 pub trait Mode: Sealed {
     const MODE: EIMode;
 }
 
-/// TODO
+/// Normal Detection mode
 pub enum Normal {}
-/// TODO
+/// Asynchronous Detection Mode
+///
+/// Level detection and operating without
+/// external clock
 pub enum AsyncOnly {}
-/// TODO
+/// Filtered mode
 pub enum Filtered {}
-/// TODO
+/// Filtered + Async flag set
 pub enum FilteredAsync {}
-/// TODO
+/// Debounced mode
 pub enum Debounced {}
-/// TODO
+/// Debounced mode + Async flag set
 pub enum DebouncedAsync {}
 
 impl Sealed for Normal {}
@@ -223,7 +225,7 @@ impl DebounceMode for SenseBoth {}
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
 /// [type class]: crate::typelevel#type-classes
-pub trait AnySenseMode: SenseMode + Sealed + Is<Type = SpecificSenseMode<Self>> {
+pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
     type Mode: SenseMode;
 }
 
@@ -305,7 +307,6 @@ where
     CS: EIClkSrc,
 {
     /// Create initial synchronous ExtInt
-    /// TODO
     pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {
         ExtInt {
             token,
@@ -326,7 +327,7 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    /// TODO
+    /// Change sense mode
     ///
     /// FIXME Requires extensive type annotations
     pub fn set_sense_mode<AK2, S2, N>(
@@ -357,31 +358,25 @@ where
     set_sense_ext! {self, I, ExtInt, Rise}
     set_sense_ext! {self, I, ExtInt, Fall}
 
-    /// Read the pin state of the ExtInt
-    /// TODO
-    pub fn pin_state(&self) -> bool {
-        self.token.regs.pin_state()
-    }
-
-    /// TODO
+    /// Enable Interrupt
     pub fn enable_interrupt(&self) {
         self.token.regs.enable_interrupt();
     }
 
-    /// TODO
+    /// Disable Interrupt
     pub fn disable_interrupt(&self) {
         self.token.regs.disable_interrupt();
     }
 
-    /// TODO
+    /// Check if interrupt has triggered
     pub fn get_interrupt_status(&self) -> bool {
         self.token.regs.get_interrupt_status()
     }
-    /// TODO
+    /// Clear interrupt status
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
     }
-    /// TODO
+    /// Enable Event System Output (EVSYS)
     ///
     /// Note: This is not tracked in typestate
     pub fn enable_event_output<AK2, N>(
@@ -394,7 +389,7 @@ where
     {
         eic.set_event_output::<I::EINum>(true);
     }
-    /// TODO
+    /// Disable Event System Output (EVSYS)
     ///
     /// Note: This is not tracked in typestate
     pub fn disable_event_output<AK2, N>(
@@ -424,13 +419,13 @@ where
 {
     /// Associated type representing the ExtInt number [`EINum`]
     type Num: GetEINum;
-    /// TODO
+    /// Configuration of GPIO [`Pin`]
     type Pin: InterruptConfig;
-    /// TODO
+    /// ExtInt operation mode [`Mode`]
     type Mode: AnyMode;
-    /// TODO
+    /// Clock source [`Clock`]
     type Clock: AnyClock;
-    /// TODO
+    /// ExtInt SenseMode [`Sense`]
     type SenseMode: AnySenseMode;
 }
 
@@ -442,15 +437,10 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    /// TODO
     type Num = I;
-    /// TODO
     type Pin = C;
-    /// TODO
     type Mode = AM;
-    /// TODO
     type Clock = AK;
-    /// TODO
     type SenseMode = AS;
 }
 

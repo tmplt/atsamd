@@ -274,6 +274,7 @@ impl EIController<WithoutClock, Configurable> {
         }
 
         // Setup mode to async for all channels
+        // FIXME
         eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
 
         // Does not use or need any external clock, `CKSEL` is ignored
@@ -498,7 +499,9 @@ where
     AK: AnyClock,
     N: Counter + PrivateDecrement,
 {
-    /// TODO
+    /// Disable the ExtInt
+    ///
+    /// Return the token and GPIO pin
     pub fn disable_ext_int<I, C, AM, AS, AE, AK2>(
         self,
         ext_int: ExtInt<I, C, AM, AK2, AS>,
@@ -527,7 +530,9 @@ where
     // Private function that should be accessed through the ExtInt
     // Could pass the MASK directly instead of making this function
     // generic over the EINum. Either way is fine.
-    /// TODO
+    /// Enable ExtInt Debouncing
+    ///
+    /// Requires access to a clock-source
     pub(super) fn enable_debouncing<E: EINum>(&self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
@@ -535,7 +540,7 @@ where
         });
     }
 
-    /// TODO
+    /// Disable ExtInt Debouncing 
     pub(super) fn disable_debouncing<E: EINum>(&self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
@@ -544,7 +549,7 @@ where
         });
     }
 
-    /// TODO
+    /// Set debouncer settings
     pub(super) fn set_debouncer_settings<E: EINum>(&self, settings: &DebouncerSettings) {
         self.0.eic.dprescaler.write({
             |w| {
@@ -562,9 +567,8 @@ where
         });
     }
 
-    // Private function that should be accessed through the ExtInt
-    /// TODO
-    pub(super) fn enable_filtering<E: EINum>(&mut self) {
+    /// Enable ExtInt Filtering
+    pub(super) fn enable_filtering<E: EINum>(&self) {
         let index: usize = E::OFFSET.into();
         let bitnum: usize = E::FILTEN.into();
 
@@ -576,8 +580,8 @@ where
         self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
 
-    /// TODO
-    pub(super) fn disable_filtering<E: EINum>(&mut self) {
+    /// Disable ExtInt Filtering
+    pub(super) fn disable_filtering<E: EINum>(&self) {
         let index: usize = E::OFFSET.into();
         let bitnum: usize = E::FILTEN.into();
 
@@ -589,7 +593,7 @@ where
         self.0.eic.config[index].write(|w| unsafe { w.bits(config_reg.bit_range(31, 0)) });
     }
 
-    /// TODO
+    /// Enable Async Operation
     pub(super) fn enable_async<E: EINum>(&self) {
         let val = self.0.eic.asynch.read().bits();
 
@@ -597,10 +601,10 @@ where
         self.0
             .eic
             .asynch
-            .write(|w| unsafe { w.bits(val & (E::MASK as u32)) });
+            .write(|w| unsafe { w.bits(val | (E::MASK as u32)) });
     }
 
-    /// TODO
+    /// Disable Async Operation
     pub(super) fn disable_async<E: EINum>(&self) {
         let val = self.0.eic.asynch.read().bits();
 
@@ -617,17 +621,7 @@ where
     CS: EIClkSrc,
     N: Counter + PrivateIncrement,
 {
-    /// TODO
-    /// Create an EIController with a clocksource
-    ///
-    /// Capable of using all ExtInt detection modes and features
-    ///
-    /// Including:
-    ///
-    /// * [`Normal`] ExtInt
-    /// * [`Debounced`] ExtInt
-    /// * [`Filtered`] ExtInt
-    /// * Running in [`AsyncOnly`] mode
+    /// Create an ExtIntNmi with a clock source
     pub fn new_sync_nmi<I, C>(
         self,
         token: NmiToken,
@@ -649,8 +643,7 @@ where
     K: AnyClock,
     N: Counter + PrivateIncrement,
 {
-    /// TODO
-    /// Create an EIController without a clocksource
+    /// Create an ExtIntNmi without a clock source
     ///
     /// Limited capabilities, restricted to only using [`AsyncOnly`] mode
     pub fn new_async_only_nmi<I, C>(
@@ -674,7 +667,7 @@ where
     AK: AnyClock,
     N: Counter + PrivateDecrement,
 {
-    /// TODO
+    /// Disable ExtIntNmi
     pub fn disable_ext_int_nmi<I, C, AM, AS, AE, AK2>(
         self,
         ext_int_nmi: NmiExtInt<I, C, AM, AK2, AS>,

@@ -34,8 +34,33 @@ impl DebouncerSettings {
     pub fn set_tickon(&mut self, tick: TICKON_A) {
         self.tickon = tick;
     }
+    pub fn set_prescaler0(&mut self, prescale: PRESCALER0_A) {
+        self.prescaler0 = prescale;
+    }
+    pub fn set_states0(&mut self, states: STATES0_A) {
+        self.states0 = states;
+    }
+    pub fn set_prescaler1(&mut self, prescale: PRESCALER1_A) {
+        self.prescaler1 = prescale;
+    }
+    pub fn set_states1(&mut self, states: STATES1_A) {
+        self.states1 = states;
+    }
 }
 
+impl Default for DebouncerSettings {
+    fn default() -> Self {
+        Self {
+            tickon: TICKON_A::CLK_LFREQ,
+            prescaler0: PRESCALER0_A::DIV2,
+            states0: STATES0_A::LFREQ3,
+            prescaler1: PRESCALER1_A::DIV2,
+            states1: STATES1_A::LFREQ3,
+        }
+    }
+}
+
+//==============================================================================
 // EINum
 //==============================================================================
 
@@ -170,7 +195,6 @@ impl<E: EINum> Registers<E> {
     }
 
     /// EIC Pinstate return the state of the debounced external interrupt
-    /// TODO, really only the debounced?
     fn pin_state(&self) -> bool {
         let state = self.eic().pinstate.read().pinstate().bits();
         (state & E::MASK) != 0

@@ -9,7 +9,19 @@ use crate::set_sense_ext_nmi;
 
 /// Non-Maskable Interrupt External Interrupt struct
 ///
-/// TODO
+/// ## Setting sense mode for [`NmiExtInt`]
+///
+/// Enabled directly when [`Sense`] changes from `Sense::None`
+///
+/// Different from the non-`NMI` interrupts which require
+/// calling [`Enabled<EIController::finalize()>`] to enable/activate
+/// interrupts.
+///
+/// ## Filtering
+///
+/// By enabling filtering a majority vote filter identical
+/// to that of regular [`ExtInt::enable_filtering()`]
+/// is available
 pub struct NmiExtInt<I, C, AM, AK, AS>
 where
     I: NmiEI,
@@ -44,7 +56,6 @@ where
     CS: EIClkSrc,
 {
     /// Create initial synchronous NmiExtInt
-    /// TODO
     pub(crate) fn new_sync(token: NmiToken, pin: Pin<I, Interrupt<C>>) -> Self {
         NmiExtInt {
             token,
@@ -63,17 +74,16 @@ where
     AM: AnyMode<Mode = AsyncOnly>,
 {
     /// Create initial asynchronous NmiExtInt
-    /// TODO
+    ///
+    /// All level detection ([`SenseHigh`], [`SenseLow`])
+    /// is done asynchronously since it does not require
+    /// any external clocking
     pub(crate) fn new_async(
         token: NmiToken,
         pin: Pin<I, Interrupt<C>>,
     ) -> NmiExtInt<I, C, AM, WithoutClock, SenseNone> {
-
-        // TODO FIXME
-        // Should it be assumed that async mode is already set
-        // on creation?
         // Set async flag
-        //token.regs.set_async_mode(true);
+        token.regs.set_async_mode(true);
         NmiExtInt {
             token,
             pin,
@@ -84,60 +94,28 @@ where
     }
 }
 
-impl<I, C, AM, AK> NmiExtInt<I, C, AM, AK, SenseLow>
-where
-    I: NmiEI,
-    C: InterruptConfig,
-    AM: AnyMode<Mode = AsyncOnly>,
-    AK: AnyClock,
-{
-    /// TODO
-    /// When EIController has access to a clock source both
-    /// async and synchronous modes are available
-    ///
-    /// Repurpose the `OnlyAsync` for this mode
-    pub fn enable_async<AM2, AS, N>(
-        self,
-        // Used to enforce WithClock
-        _eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-    ) -> NmiExtInt<I, C, AM2, AK, AS>
-    where
-        N: Counter,
-        AS: AnySenseMode<Mode = SenseLow>,
-        AM2: AnyMode<Mode = AsyncOnly>,
-    {
-        self.token.regs.set_async_mode(true);
-
-        NmiExtInt {
-            token: self.token,
-            pin: self.pin,
-            mode: PhantomData,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-}
-impl<I, C, AM, AK> NmiExtInt<I, C, AM, AK, SenseHigh>
+impl<I, C, AM, AK, AS> NmiExtInt<I, C, AM, AK, AS>
 where
     I: NmiEI,
     C: InterruptConfig,
     AM: AnyMode<Mode = Normal>,
     AK: AnyClock,
+    AS: AnySenseMode,
 {
-    /// TODO
     /// When EIController has access to a clock source both
     /// async and synchronous modes are available
     ///
-    /// Repurpose the `OnlyAsync` for this mode
-    pub fn enable_async<AM2, AS, N>(
+    /// Thus it is possible to change to `OnlyAsync` mode,
+    /// which has all `LevelDetectMode`
+    ///
+    /// Force SenseNone
+    pub fn enable_async<N>(
         self,
         // Used to enforce WithClock
         _eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-    ) -> NmiExtInt<I, C, AM2, AK, AS>
+    ) -> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseNone>
     where
         N: Counter,
-        AS: AnySenseMode<Mode = SenseHigh>,
-        AM2: AnyMode<Mode = AsyncOnly>,
     {
         self.token.regs.set_async_mode(true);
 
@@ -158,47 +136,14 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    /// TODO
-    /// Only possible to deactivate AnyMode<Mode = AsyncOnly>
-    /// when EIController has access to a clock source.
-    /// FIXME
-    pub fn disable_async<AM2, N>(
-        self,
-        // Used to enforce WithClock
-        _eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-    ) -> NmiExtInt<I, C, AM2, AK, AS>
-    where
-        N: Counter,
-        AM2: AnyMode<Mode = Normal>,
-    {
-        self.token.regs.set_async_mode(false);
-
-        NmiExtInt {
-            token: self.token,
-            pin: self.pin,
-            mode: PhantomData,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-}
-
-impl<I, C, CS, AM, AK, AS> NmiExtInt<I, C, AM, AK, AS>
-where
-    I: NmiEI,
-    C: InterruptConfig,
-    CS: EIClkSrc,
-    AM: AnyMode<Mode = Normal>,
-    AK: AnyClock<Mode = WithClock<CS>>,
-    AS: AnySenseMode,
-{
-    /// TODO
-    pub fn enable_filtering<AM2, N>(
+    /// Enable filtering of NmiExtInt
+    pub fn enable_filtering<AM2, CS, N>(
         self,
         _eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
     ) -> NmiExtInt<I, C, AM, AK, AS>
     where
         N: Counter,
+        CS: EIClkSrc,
         AM2: AnyMode<Mode = Filtered>,
     {
         self.token.regs.set_filter_mode(true);
@@ -223,7 +168,7 @@ where
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
 {
-    /// TODO
+    /// Disable filtering of NmiExtInt
     pub fn disable_filtering<AM2, N>(
         self,
         _eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
@@ -253,37 +198,6 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    /// Set sense mode for [`NmiExtInt`]
-    ///
-    /// Enabled directly when [`Sense`] changes from `Sense::None`
-    ///
-    /// Different from the non-`NMI` interrupts which require
-    /// calling [`Enabled<EIController::finalize()>`] to enable/activate
-    /// interrupts.
-    ///
-    /// TODO
-    pub fn set_sense_mode<AK2, S2, N>(
-        self,
-        // Used to enforce having access to EIController
-        eic: &Enabled<EIController<AK2, Configurable>, N>,
-        sense: Sense,
-    ) -> NmiExtInt<I, C, AM, AK, S2>
-    where
-        AK2: AnyClock,
-        S2: AnySenseMode,
-        N: Counter,
-    {
-        eic.set_sense_mode_nmi(sense);
-
-        NmiExtInt {
-            token: self.token,
-            pin: self.pin,
-            mode: PhantomData,
-            clockmode: PhantomData,
-            sensemode: PhantomData,
-        }
-    }
-
     /// Clear the ExtIntNMI interrupt
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
@@ -329,7 +243,7 @@ where
     // Allow switching to SenseLow from SenseHigh
     set_sense_ext_nmi! {self, NmiExtInt, High}
 }
-impl<I, C, CS,  AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseHigh>
+impl<I, C, CS, AM> NmiExtInt<I, C, AM, WithClock<CS>, SenseHigh>
 where
     I: NmiEI,
     C: InterruptConfig,
@@ -354,5 +268,4 @@ where
     set_sense_ext_nmi! {self, NmiExtInt, Fall}
     // And back to SenseNone
     set_sense_ext_nmi! {self, NmiExtInt, None}
-
 }
