@@ -275,6 +275,7 @@ impl EIController<WithoutClock, Configurable> {
 
         // Setup mode to async for all channels
         // FIXME
+        // Is this sensible?
         eic.asynch.write(|w| unsafe { w.bits(0xFFFF) });
 
         // Does not use or need any external clock, `CKSEL` is ignored
@@ -299,10 +300,22 @@ where
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
         while self.0.eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
+            // FIXME
+            // Test without NOP
+            //cortex_m::asm::nop();
         }
     }
+    /// Softare reset the EIC controller
+    ///
+    /// Will clear all registers and leave the controller disabled
+    pub fn swrst(self) -> Self {
+        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
+        // Wait until done
+        self.syncbusy_swrst();
+        self
+    }
 }
+
 
 impl<AK, EP, N> Enabled<EIController<AK, EP>, N>
 where
@@ -313,7 +326,7 @@ where
     /// Enabling the EIC controller needs to be synchronised
     fn syncbusy_enable(&self) {
         while self.0.eic.syncbusy.read().enable().bit_is_set() {
-            cortex_m::asm::nop();
+            //cortex_m::asm::nop();
         }
     }
 
@@ -401,21 +414,6 @@ where
             clockmode: self.0.clockmode,
             _enablestate: PhantomData,
         })
-    }
-}
-
-impl<AK> Enabled<EIController<AK, Configurable>, U0>
-where
-    AK: AnyClock,
-{
-    /// Softare reset the EIC controller
-    ///
-    /// Will clear all registers and leave the controller disabled
-    pub fn swrst(self) -> Self {
-        self.0.eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        // Wait until done
-        self.syncbusy_swrst();
-        self
     }
 }
 
@@ -550,7 +548,9 @@ where
     }
 
     /// Set debouncer settings
-    pub(super) fn set_debouncer_settings<E: EINum>(&self, settings: &DebouncerSettings) {
+    ///
+    /// Changes debouncing for ALL ExtInts
+    pub fn set_debouncer_settings(&self, settings: &DebouncerSettings) {
         self.0.eic.dprescaler.write({
             |w| {
                 w.tickon()
