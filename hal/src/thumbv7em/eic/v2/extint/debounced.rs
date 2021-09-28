@@ -183,17 +183,6 @@ where
             sensemode: PhantomData,
         }
     }
-
-    /// Modify debouncer settings
-    pub fn set_debouncer_settings<N>(
-        &self,
-        eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-        settings: &DebouncerSettings,
-    ) where
-        N: Counter,
-    {
-        eic.set_debouncer_settings::<I::EINum>(settings);
-    }
 }
 
 impl<I, C, CS, AK, AS> ExtInt<I, C, DebouncedAsync, AK, AS>
@@ -222,17 +211,6 @@ where
             clockmode: PhantomData,
             sensemode: PhantomData,
         }
-    }
-
-    /// Modify debouncer settings
-    pub fn set_debouncer_settings<N>(
-        &self,
-        eic: &Enabled<EIController<WithClock<AK::ClockSource>, Configurable>, N>,
-        settings: &DebouncerSettings,
-    ) where
-        N: Counter,
-    {
-        eic.set_debouncer_settings::<I::EINum>(settings);
     }
 }
 
