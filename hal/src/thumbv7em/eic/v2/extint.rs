@@ -304,7 +304,7 @@ where
     I: GetEINum,
     C: InterruptConfig,
     AM: AnyMode,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     /// Create initial synchronous ExtInt
     pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {

@@ -8,7 +8,10 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 // Copied from crate::clock::v2::types, just importing from
 // there causes cargo doc to combine clocking and EIC
 // This needs revisiting
-use crate::clock::types::{Counter as ClockCounter, Decrement, Enabled as ClockEnabled, Increment};
+use crate::clock::types::{
+    Counter as ClockCounter, Decrement as ClockDecrement, Enabled as ClockEnabled,
+    Increment as ClockIncrement,
+};
 use types::{Counter, Enabled, PrivateDecrement, PrivateIncrement};
 
 use crate::eic::v2::*;
@@ -47,12 +50,12 @@ impl Clock for WithoutClock {}
 /// * One EXTINT uses filtering
 /// * One EXTINT uses synchronous edge detection
 /// * One EXTINT uses debouncing
-pub struct WithClock<C: EIClkSrc> {
+pub struct WithClock<C: EIClkSrcMarker> {
     /// Clock resource
     _clock: PhantomData<C>,
 }
-impl<C: EIClkSrc> Sealed for WithClock<C> {}
-impl<C: EIClkSrc> Clock for WithClock<C> {}
+impl<C: EIClkSrcMarker> Sealed for WithClock<C> {}
+impl<C: EIClkSrcMarker> Clock for WithClock<C> {}
 
 /// Type class for all possible [`Clock`] types
 ///
@@ -64,7 +67,7 @@ impl<C: EIClkSrc> Clock for WithClock<C> {}
 /// [type class]: crate::typelevel#type-classes
 pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
     type Mode: Clock;
-    type ClockSource: EIClkSrc;
+    type ClockSource: EIClkSrcMarker;
 }
 
 /// Type alias for extracting a specific clock from [`AnyClock`]
@@ -77,7 +80,7 @@ impl AnyClock for WithoutClock {
 
 impl<CS> AnyClock for WithClock<CS>
 where
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     type Mode = WithClock<CS>;
     type ClockSource = CS;
@@ -97,40 +100,44 @@ impl AsMut<Self> for WithoutClock {
     }
 }
 
-impl<CS: EIClkSrc> AsRef<Self> for WithClock<CS> {
+impl<CS: EIClkSrcMarker> AsRef<Self> for WithClock<CS> {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<CS: EIClkSrc> AsMut<Self> for WithClock<CS> {
+impl<CS: EIClkSrcMarker> AsMut<Self> for WithClock<CS> {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
+pub trait EIClkSrc: Sealed {
+    type Type: EIClkSrcMarker;
+}
+
 /// EIController clock source
 ///
 /// See [`Clock`]
-pub trait EIClkSrc: Sealed {
+pub trait EIClkSrcMarker {
     const CKSEL: CKSEL_A;
 }
 
 // Peripheral channel clock, routed from a GCLK
-impl<T: PclkSourceMarker> EIClkSrc for Pclk<Eic, T> {
+impl<T: PclkSourceMarker> EIClkSrcMarker for Pclk<Eic, T> {
     /// Peripheral channel GCLK_EIC used to clock EIC
     const CKSEL: CKSEL_A = CKSEL_A::CLK_GCLK;
 }
 
 // Ultra-low power oscillator can be used instead
-impl<Y: Output1k, N: ClockCounter> EIClkSrc for ClockEnabled<OscUlp32k<Active32k, Y>, N> {
+impl<Y: Output1k, N: ClockCounter> EIClkSrcMarker for ClockEnabled<OscUlp32k<Active32k, Y>, N> {
     /// Ultra-low power OSCULP32K used to clock EIC
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
 
-impl EIClkSrc for NoneT {
+impl EIClkSrcMarker for NoneT {
     /// Used in the case of [`WithoutClock`]
     ///
     /// This is the default value at reset,
@@ -138,6 +145,17 @@ impl EIClkSrc for NoneT {
     ///
     /// This is a workaround to be able to extract ClockSource
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
+}
+
+impl<T> EIClkSrc for Pclk<Eic, T>
+where
+    T: PclkSourceMarker,
+{
+    type Type = Pclk<Eic, T>;
+}
+
+impl<Y: Output1k, N: ClockCounter> EIClkSrc for ClockEnabled<OscUlp32k<Active32k, Y>, N> {
+    type Type = ClockEnabled<OscUlp32k<Active32k, Y>, N>;
 }
 
 //==============================================================================
@@ -213,7 +231,7 @@ where
 
 impl<CS> EIController<WithClock<CS>, Configurable>
 where
-    CS: EIClkSrc + Increment,
+    CS: EIClkSrcMarker,
 {
     /// Create an EIC Controller with a clock source
     ///
@@ -315,7 +333,6 @@ where
         self
     }
 }
-
 
 impl<AK, EP, N> Enabled<EIController<AK, EP>, N>
 where
@@ -419,12 +436,12 @@ where
 
 impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
 where
-    CS: EIClkSrc + Decrement,
+    CS: EIClkSrcMarker,
 {
     /// Disable and destroy the EIC controller
-    pub fn destroy<S>(self, _tokens: Tokens, clock: CS) -> (crate::pac::EIC, CS::Dec)
+    pub fn destroy<S>(self, _tokens: Tokens, clock: S) -> (crate::pac::EIC, S::Dec)
     where
-        S: EIClkSrc + Decrement,
+        S: ClockDecrement,
     {
         (self.0.eic, clock.dec())
     }
@@ -439,7 +456,7 @@ impl Enabled<EIController<WithoutClock, Configurable>, U0> {
 
 impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
 where
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     N: Counter + PrivateIncrement,
 {
     /// Create an EIController with a clocksource
@@ -500,7 +517,7 @@ where
     /// Disable the ExtInt
     ///
     /// Return the token and GPIO pin
-    pub fn disable_ext_int<I, C, AM, AS, AE, AK2>(
+    pub fn disable_ext_int<I, C, AM, AS, AK2>(
         self,
         ext_int: ExtInt<I, C, AM, AK2, AS>,
     ) -> (
@@ -514,7 +531,6 @@ where
         AM: AnyMode,
         AS: AnySenseMode,
         AK2: AnyClock,
-        AE: AnyExtInt<Num = I, Pin = C>,
     {
         (self.dec(), ext_int.token, ext_int.pin)
     }
@@ -522,7 +538,7 @@ where
 
 impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
 where
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     N: Counter,
 {
     // Private function that should be accessed through the ExtInt
@@ -538,7 +554,7 @@ where
         });
     }
 
-    /// Disable ExtInt Debouncing 
+    /// Disable ExtInt Debouncing
     pub(super) fn disable_debouncing<E: EINum>(&self) {
         self.0.eic.debouncen.modify(|r, w| unsafe {
             let bits = r.debouncen().bits();
@@ -618,7 +634,7 @@ where
 
 impl<CS, N> Enabled<EIController<WithClock<CS>, Configurable>, N>
 where
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     N: Counter + PrivateIncrement,
 {
     /// Create an ExtIntNmi with a clock source
@@ -668,7 +684,7 @@ where
     N: Counter + PrivateDecrement,
 {
     /// Disable ExtIntNmi
-    pub fn disable_ext_int_nmi<I, C, AM, AS, AE, AK2>(
+    pub fn disable_ext_int_nmi<I, C, AM, AS, AK2>(
         self,
         ext_int_nmi: NmiExtInt<I, C, AM, AK2, AS>,
     ) -> (
@@ -682,7 +698,6 @@ where
         AM: AnyMode,
         AS: AnySenseMode,
         AK2: AnyClock,
-        AE: AnyExtInt<Num = I, Pin = C>,
     {
         (self.dec(), ext_int_nmi.token, ext_int_nmi.pin)
     }

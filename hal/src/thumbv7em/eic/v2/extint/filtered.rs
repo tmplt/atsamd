@@ -5,7 +5,7 @@ impl<I, C, AM, CS, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Normal>,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
@@ -78,7 +78,7 @@ impl<I, C, AM, CS, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Filtered>,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
@@ -107,7 +107,7 @@ impl<I, C, CS, AK, AS> ExtInt<I, C, FilteredAsync, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
 {

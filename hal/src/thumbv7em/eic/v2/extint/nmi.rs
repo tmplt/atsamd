@@ -53,7 +53,7 @@ where
     I: NmiEI,
     C: InterruptConfig,
     AM: AnyMode<Mode = Normal>,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     /// Create initial synchronous NmiExtInt
     pub(crate) fn new_sync(token: NmiToken, pin: Pin<I, Interrupt<C>>) -> Self {
@@ -143,7 +143,7 @@ where
     ) -> NmiExtInt<I, C, AM, AK, AS>
     where
         N: Counter,
-        CS: EIClkSrc,
+        CS: EIClkSrcMarker,
         AM2: AnyMode<Mode = Filtered>,
     {
         self.token.regs.set_filter_mode(true);
@@ -163,7 +163,7 @@ impl<I, C, CS, AM, AK, AS> NmiExtInt<I, C, AM, AK, AS>
 where
     I: NmiEI,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Filtered>,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
@@ -238,7 +238,7 @@ where
     I: NmiEI,
     C: InterruptConfig,
     AM: AnyMode,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     // Allow switching to SenseLow from SenseHigh
     set_sense_ext_nmi! {self, NmiExtInt, High}
@@ -248,7 +248,7 @@ where
     I: NmiEI,
     C: InterruptConfig,
     AM: AnyMode,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     // Allow switching to SenseHigh from SenseLow
     set_sense_ext_nmi! {self, NmiExtInt, Low}
@@ -260,7 +260,7 @@ where
     C: InterruptConfig,
     AM: AnyMode,
     AS: AnySenseMode,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
 {
     // A clock source is present, all EdgeDetect senses are available
     set_sense_ext_nmi! {self, NmiExtInt, Both}

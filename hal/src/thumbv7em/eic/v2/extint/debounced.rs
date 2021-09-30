@@ -5,7 +5,7 @@ impl<I, C, AM, CS, AK> ExtInt<I, C, AM, AK, SenseBoth>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Normal>,
     AK: AnyClock<Mode = WithClock<CS>>,
 {
@@ -57,7 +57,7 @@ impl<I, C, AM, CS, AK> ExtInt<I, C, AM, AK, SenseRise>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Normal>,
     AK: AnyClock<Mode = WithClock<CS>>,
 {
@@ -108,7 +108,7 @@ impl<I, C, AM, CS, AK> ExtInt<I, C, AM, AK, SenseFall>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Normal>,
     AK: AnyClock<Mode = WithClock<CS>>,
 {
@@ -160,7 +160,7 @@ impl<I, C, AM, CS, AK, AS> ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Debounced>,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
@@ -189,7 +189,7 @@ impl<I, C, CS, AK, AS> ExtInt<I, C, DebouncedAsync, AK, AS>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrc,
+    CS: EIClkSrcMarker,
     AK: AnyClock<Mode = WithClock<CS>>,
     AS: AnySenseMode,
 {
