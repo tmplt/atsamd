@@ -240,14 +240,17 @@ where
     /// # Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new(
+    pub fn new<S>(
         eic: crate::pac::EIC,
-        clock: CS,
+        clock: S,
     ) -> (
         Enabled<EIController<WithClock<CS>, Configurable>, U0>,
         Tokens,
-        CS::Inc,
-    ) {
+        S::Inc,
+    )
+    where
+        S: EIClkSrc<Type = CS> + ClockIncrement,
+    {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {}
