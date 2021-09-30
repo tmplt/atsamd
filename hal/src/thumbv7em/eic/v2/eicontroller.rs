@@ -250,9 +250,7 @@ where
     ) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        while eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
-        }
+        while eic.syncbusy.read().swrst().bit_is_set() {}
 
         // Set CKSEL to match the clock resource provided
         eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
@@ -287,9 +285,7 @@ impl EIController<WithoutClock, Configurable> {
     ) {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
-        while eic.syncbusy.read().swrst().bit_is_set() {
-            cortex_m::asm::nop();
-        }
+        while eic.syncbusy.read().swrst().bit_is_set() {}
 
         // Setup mode to async for all channels
         // FIXME
@@ -317,11 +313,7 @@ where
 {
     /// Software reset needs to be synchronised
     fn syncbusy_swrst(&self) {
-        while self.0.eic.syncbusy.read().swrst().bit_is_set() {
-            // FIXME
-            // Test without NOP
-            //cortex_m::asm::nop();
-        }
+        while self.0.eic.syncbusy.read().swrst().bit_is_set() {}
     }
     /// Softare reset the EIC controller
     ///
@@ -342,9 +334,7 @@ where
 {
     /// Enabling the EIC controller needs to be synchronised
     fn syncbusy_enable(&self) {
-        while self.0.eic.syncbusy.read().enable().bit_is_set() {
-            //cortex_m::asm::nop();
-        }
+        while self.0.eic.syncbusy.read().enable().bit_is_set() {}
     }
 
     fn read_config_reg(&self, index: usize) -> EIConfigReg {
