@@ -35,6 +35,7 @@ use super::extint::*;
 ///
 /// This clock selection is written to hardware,
 /// `EIC->CTRLA->CKSEL`
+/// TODO
 pub trait Clock: Sealed {}
 
 /// Only allows asynchronous detection
@@ -50,12 +51,27 @@ impl Clock for WithoutClock {}
 /// * One EXTINT uses filtering
 /// * One EXTINT uses synchronous edge detection
 /// * One EXTINT uses debouncing
-pub struct WithClock<C: EIClkSrcMarker> {
+pub trait WithClock<K>: Sealed {}
+
+/// TODO
+pub struct Osc32kDriven<C: EIClkSrcMarker> {
     /// Clock resource
-    _clock: PhantomData<C>,
+    reference_clk: PhantomData<C>,
 }
-impl<C: EIClkSrcMarker> Sealed for WithClock<C> {}
-impl<C: EIClkSrcMarker> Clock for WithClock<C> {}
+impl<C: EIClkSrcMarker> Sealed for Osc32kDriven<C> {}
+impl<C: EIClkSrcMarker> Clock for Osc32kDriven<C> {}
+impl<C: EIClkSrcMarker> WithClock<Osc32kDriven<C>> for Osc32kDriven<C> {}
+
+pub struct PclkDriven<T>
+where
+    T: PclkSourceMarker,
+{
+    /// Clock resource
+    reference_clk: Pclk<Eic, T>,
+}
+impl<T: PclkSourceMarker> Sealed for PclkDriven<T> {}
+impl<T: PclkSourceMarker> Clock for PclkDriven<T> {}
+impl<T: PclkSourceMarker> WithClock<PclkDriven<T>> for PclkDriven<T> {}
 
 /// Type class for all possible [`Clock`] types
 ///
@@ -78,14 +94,6 @@ impl AnyClock for WithoutClock {
     type ClockSource = NoneT;
 }
 
-impl<CS> AnyClock for WithClock<CS>
-where
-    CS: EIClkSrcMarker,
-{
-    type Mode = WithClock<CS>;
-    type ClockSource = CS;
-}
-
 impl AsRef<Self> for WithoutClock {
     #[inline]
     fn as_ref(&self) -> &Self {
@@ -100,14 +108,43 @@ impl AsMut<Self> for WithoutClock {
     }
 }
 
-impl<CS: EIClkSrcMarker> AsRef<Self> for WithClock<CS> {
+impl<CS> AnyClock for Osc32kDriven<CS>
+where
+    CS: EIClkSrcMarker,
+{
+    type Mode = Osc32kDriven<CS>;
+    type ClockSource = CS;
+}
+
+impl<CS: EIClkSrcMarker> AsRef<Self> for Osc32kDriven<CS> {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<CS: EIClkSrcMarker> AsMut<Self> for WithClock<CS> {
+impl<CS: EIClkSrcMarker> AsMut<Self> for Osc32kDriven<CS> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<T> AnyClock for PclkDriven<T>
+where
+    T: PclkSourceMarker,
+{
+    type Mode = PclkDriven<T>;
+    type ClockSource = T;
+}
+impl<T: PclkSourceMarker> AsRef<Self> for PclkDriven<T> {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<T: PclkSourceMarker> AsMut<Self> for PclkDriven<T> {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self
@@ -137,6 +174,7 @@ impl<Y: Output1k, N: ClockCounter> EIClkSrcMarker for ClockEnabled<OscUlp32k<Act
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
 
+/*
 impl EIClkSrcMarker for NoneT {
     /// Used in the case of [`WithoutClock`]
     ///
@@ -146,6 +184,7 @@ impl EIClkSrcMarker for NoneT {
     /// This is a workaround to be able to extract ClockSource
     const CKSEL: CKSEL_A = CKSEL_A::CLK_ULP32K;
 }
+*/
 
 impl<T> EIClkSrc for Pclk<Eic, T>
 where
@@ -225,11 +264,11 @@ where
     EP: EnableProtection,
 {
     eic: crate::pac::EIC,
-    clockmode: PhantomData<AK>,
+    clockmode: AK,
     _enablestate: PhantomData<EP>,
 }
 
-impl<CS> EIController<WithClock<CS>, Configurable>
+impl<CS> EIController<Osc32kDriven<CS>, Configurable>
 where
     CS: EIClkSrcMarker,
 {
@@ -240,11 +279,11 @@ where
     /// # Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn new<S>(
+    pub fn from_osc32k<S>(
         eic: crate::pac::EIC,
         clock: S,
     ) -> (
-        Enabled<EIController<WithClock<CS>, Configurable>, U0>,
+        Enabled<EIController<Osc32kDriven<CS>, Configurable>, U0>,
         Tokens,
         S::Inc,
     )
@@ -256,17 +295,52 @@ where
         while eic.syncbusy.read().swrst().bit_is_set() {}
 
         // Set CKSEL to match the clock resource provided
-        eic.ctrla.modify(|_, w| w.cksel().variant(CS::CKSEL));
+        eic.ctrla
+            .modify(|_, w| w.cksel().variant(CKSEL_A::CLK_ULP32K));
 
         unsafe {
             (
                 Enabled::new(Self {
                     eic,
-                    clockmode: PhantomData,
+                    clockmode: Osc32kDriven {
+                        reference_clk: PhantomData,
+                    },
                     _enablestate: PhantomData,
                 }),
                 Tokens::new(),
                 clock.inc(),
+            )
+        }
+    }
+}
+impl<T> EIController<PclkDriven<T>, Configurable>
+where
+    T: PclkSourceMarker,
+{
+    /// TODO
+    pub fn from_pclk(
+        eic: crate::pac::EIC,
+        reference_clk: Pclk<Eic, T>,
+    ) -> (
+        Enabled<EIController<PclkDriven<T>, Configurable>, U0>,
+        Tokens,
+    ) {
+        // Software reset the EIC controller on creation
+        eic.ctrla.modify(|_, w| w.swrst().set_bit());
+        while eic.syncbusy.read().swrst().bit_is_set() {}
+
+        // Set CKSEL to match the clock resource provided
+        eic.ctrla
+            .modify(|_, w| w.cksel().variant(CKSEL_A::CLK_GCLK));
+
+        unsafe {
+            (
+                Enabled::new(Self {
+                    eic,
+                    clockmode: PclkDriven { reference_clk },
+                    _enablestate: PhantomData,
+                }),
+                Tokens::new(),
             )
         }
     }
@@ -301,7 +375,7 @@ impl EIController<WithoutClock, Configurable> {
             (
                 Enabled::new(Self {
                     eic,
-                    clockmode: PhantomData,
+                    clockmode: WithoutClock {},
                     _enablestate: PhantomData,
                 }),
                 Tokens::new(),
@@ -329,6 +403,7 @@ where
     }
 }
 
+/*
 impl<AK, EP, N> Enabled<EIController<AK, EP>, N>
 where
     AK: AnyClock,
@@ -427,7 +502,17 @@ where
     }
 }
 
-impl<CS> Enabled<EIController<WithClock<CS>, Configurable>, U0>
+impl<T> Enabled<EIController<PclkDriven<T>, Configurable>, U0>
+where
+    T: PclkSourceMarker,
+{
+    /// Disable and destroy the EIC controller
+    pub fn destroy(self, _tokens: Tokens) -> (crate::pac::EIC, Pclk<Eic, T>) {
+        (self.0.eic, self.reference_clk)
+    }
+}
+
+impl<CS> Enabled<EIController<Osc32kDriven<CS>, Configurable>, U0>
 where
     CS: EIClkSrcMarker,
 {
@@ -695,3 +780,4 @@ where
         (self.dec(), ext_int_nmi.token, ext_int_nmi.pin)
     }
 }
+*/

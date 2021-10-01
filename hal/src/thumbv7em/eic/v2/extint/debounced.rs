@@ -7,7 +7,7 @@ where
     C: InterruptConfig,
     CS: EIClkSrcMarker,
     AM: AnyMode<Mode = Normal>,
-    AK: AnyClock<Mode = WithClock<CS>>,
+    AK: AnyClock<Mode = dyn WithClock<CS>>,
 {
     /// Enable debouncing
     ///
@@ -15,7 +15,7 @@ where
     /// or [`Sense::Both`]
     pub fn enable_debouncing<N>(
         self,
-        eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
+        eic: &Enabled<EIController<dyn WithClock<CS>, Configurable>, N>,
     ) -> ExtInt<I, C, Debounced, AK, SenseBoth>
     where
         N: Counter,

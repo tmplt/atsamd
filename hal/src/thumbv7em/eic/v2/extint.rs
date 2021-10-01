@@ -299,7 +299,7 @@ where
 {
 }
 
-impl<I, C, AM, CS> ExtInt<I, C, AM, WithClock<CS>, SenseNone>
+impl<I, C, AM, CS> ExtInt<I, C, AM, Osc32kDriven<CS>, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
