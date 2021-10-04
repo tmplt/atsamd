@@ -99,25 +99,24 @@ pub type SpecificMode<S> = <S as AnyMode>::Mode;
 macro_rules! any_mode {
     ($name:ident) => {
         paste! {
-        impl AnyMode for [<$name>]
-        {
-            type Mode = [<$name>];
-        }
-
-        impl AsRef<Self> for [<$name>] {
-            #[inline]
-            fn as_ref(&self) -> &Self {
-                self
+            impl AnyMode for [<$name>]
+            {
+                type Mode = [<$name>];
             }
-        }
-        impl AsMut<Self> for [<$name>] {
-            #[inline]
-            fn as_mut(&mut self) -> &mut Self {
-                self
-            }
-        }
 
+            impl AsRef<Self> for [<$name>] {
+                #[inline]
+                fn as_ref(&self) -> &Self {
+                    self
                 }
+            }
+            impl AsMut<Self> for [<$name>] {
+                #[inline]
+                fn as_mut(&mut self) -> &mut Self {
+                    self
+                }
+            }
+        }
     };
 }
 

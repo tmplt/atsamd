@@ -51,7 +51,7 @@ impl Clock for WithoutClock {}
 /// * One EXTINT uses filtering
 /// * One EXTINT uses synchronous edge detection
 /// * One EXTINT uses debouncing
-pub trait WithClock<K>: Sealed {}
+pub trait WithClock<K: Clock>: Sealed {}
 
 /// TODO
 pub struct Osc32kDriven<C: EIClkSrcMarker> {
