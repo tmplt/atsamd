@@ -6,8 +6,9 @@ where
     I: GetEINum,
     C: InterruptConfig,
     CS: EIClkSrcMarker,
+    K: Clock,
     AM: AnyMode<Mode = Normal>,
-    AK: AnyClock<Mode = dyn WithClock<CS>>,
+    AK: AnyClock<Mode = WithClock<CS>>,
 {
     /// Enable debouncing
     ///
@@ -15,7 +16,7 @@ where
     /// or [`Sense::Both`]
     pub fn enable_debouncing<N>(
         self,
-        eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<K>, Configurable>, N>,
     ) -> ExtInt<I, C, Debounced, AK, SenseBoth>
     where
         N: Counter,
@@ -36,7 +37,7 @@ where
     /// or [`Sense::Both`]
     pub fn enable_debouncing_async<N>(
         self,
-        eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<K>, Configurable>, N>,
     ) -> ExtInt<I, C, DebouncedAsync, AK, SenseBoth>
     where
         N: Counter,
@@ -53,13 +54,14 @@ where
         }
     }
 }
-impl<I, C, AM, CS, AK> ExtInt<I, C, AM, AK, SenseRise>
+impl<I, C, AM, K, AK> ExtInt<I, C, AM, AK, SenseRise>
 where
     I: GetEINum,
     C: InterruptConfig,
-    CS: EIClkSrcMarker,
+    //CS: EIClkSrcMarker,
+    K: Clock,
     AM: AnyMode<Mode = Normal>,
-    AK: AnyClock<Mode = WithClock<CS>>,
+    AK: AnyClock<Mode = WithClock<K>>,
 {
     /// Enable debouncing
     ///
@@ -67,7 +69,7 @@ where
     /// or [`Sense::Both`]
     pub fn enable_debouncing<N>(
         self,
-        eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<K>, Configurable>, N>,
     ) -> ExtInt<I, C, Debounced, AK, SenseRise>
     where
         N: Counter,
@@ -87,7 +89,7 @@ where
     /// or [`Sense::Both`]
     pub fn enable_debouncing_async<N>(
         self,
-        eic: &Enabled<EIController<WithClock<CS>, Configurable>, N>,
+        eic: &Enabled<EIController<WithClock<K>, Configurable>, N>,
     ) -> ExtInt<I, C, DebouncedAsync, AK, SenseRise>
     where
         N: Counter,

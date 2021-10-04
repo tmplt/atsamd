@@ -4,7 +4,7 @@ use core::mem::transmute;
 use crate::eic::v2::*;
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 use crate::typelevel::{Is, Sealed};
-
+/*
 pub mod asynconly;
 pub mod debounced;
 pub mod filtered;
@@ -14,6 +14,7 @@ pub use asynconly::*;
 pub use debounced::*;
 pub use filtered::*;
 pub use nmi::*;
+*/
 
 // Macro for setting sense
 use crate::set_sense_ext;
@@ -298,12 +299,11 @@ where
 {
 }
 
-impl<I, C, AM, CS> ExtInt<I, C, AM, Osc32kDriven<CS>, SenseNone>
+impl<I, C, AM> ExtInt<I, C, AM, Osc32kDriven, SenseNone>
 where
     I: GetEINum,
     C: InterruptConfig,
     AM: AnyMode,
-    CS: EIClkSrcMarker,
 {
     /// Create initial synchronous ExtInt
     pub(crate) fn new_sync(token: Token<I::EINum>, pin: Pin<I, Interrupt<C>>) -> Self {

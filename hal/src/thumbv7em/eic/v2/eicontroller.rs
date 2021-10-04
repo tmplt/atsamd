@@ -51,16 +51,18 @@ impl Clock for WithoutClock {}
 /// * One EXTINT uses filtering
 /// * One EXTINT uses synchronous edge detection
 /// * One EXTINT uses debouncing
-pub trait WithClock<K: Clock>: Sealed {}
+pub trait WithClock: Sealed {
+    type ClockType;
+}
 
 /// TODO
-pub struct Osc32kDriven<C: EIClkSrcMarker> {
-    /// Clock resource
-    reference_clk: PhantomData<C>,
+pub struct Osc32kDriven {}
+
+impl Sealed for Osc32kDriven {}
+impl Clock for Osc32kDriven {}
+impl WithClock for Osc32kDriven {
+    type ClockType = Osc32kDriven;
 }
-impl<C: EIClkSrcMarker> Sealed for Osc32kDriven<C> {}
-impl<C: EIClkSrcMarker> Clock for Osc32kDriven<C> {}
-impl<C: EIClkSrcMarker> WithClock<Osc32kDriven<C>> for Osc32kDriven<C> {}
 
 pub struct PclkDriven<T>
 where
@@ -71,7 +73,9 @@ where
 }
 impl<T: PclkSourceMarker> Sealed for PclkDriven<T> {}
 impl<T: PclkSourceMarker> Clock for PclkDriven<T> {}
-impl<T: PclkSourceMarker> WithClock<PclkDriven<T>> for PclkDriven<T> {}
+impl<T: PclkSourceMarker> WithClock for PclkDriven<T> {
+    type ClockType = PclkDriven<T>;
+}
 
 /// Type class for all possible [`Clock`] types
 ///
@@ -83,7 +87,7 @@ impl<T: PclkSourceMarker> WithClock<PclkDriven<T>> for PclkDriven<T> {}
 /// [type class]: crate::typelevel#type-classes
 pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
     type Mode: Clock;
-    type ClockSource: EIClkSrcMarker;
+    //type ClockSource: EIClkSrcMarker;
 }
 
 /// Type alias for extracting a specific clock from [`AnyClock`]
@@ -91,7 +95,7 @@ pub type SpecificClock<K> = <K as AnyClock>::Mode;
 
 impl AnyClock for WithoutClock {
     type Mode = WithoutClock;
-    type ClockSource = NoneT;
+    //type ClockSource = NoneT;
 }
 
 impl AsRef<Self> for WithoutClock {
@@ -108,48 +112,75 @@ impl AsMut<Self> for WithoutClock {
     }
 }
 
-impl<CS> AnyClock for Osc32kDriven<CS>
-where
-    CS: EIClkSrcMarker,
+impl AnyClock for WithClock<ClockType = Osc32kDriven>
 {
-    type Mode = Osc32kDriven<CS>;
-    type ClockSource = CS;
+    type Mode = Osc32kDriven;
 }
 
-impl<CS: EIClkSrcMarker> AsRef<Self> for Osc32kDriven<CS> {
+impl AsRef<Self> for WithClock<ClockType = Osc32kDriven> {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<CS: EIClkSrcMarker> AsMut<Self> for Osc32kDriven<CS> {
+impl AsMut<Self> for WithClock<ClockType = Osc32kDriven> {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<T> AnyClock for PclkDriven<T>
+impl<T> AnyClock for WithClock<ClockType = PclkDriven<T>>
 where
     T: PclkSourceMarker,
 {
-    type Mode = PclkDriven<T>;
-    type ClockSource = T;
+    type Mode = WithClock<ClockType = Self::Mode>;
+    //type ClockSource = T;
 }
-impl<T: PclkSourceMarker> AsRef<Self> for PclkDriven<T> {
+
+impl<T: PclkSourceMarker> AsRef<Self> for WithClock<ClockType = PclkDriven<T>> {
     #[inline]
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<T: PclkSourceMarker> AsMut<Self> for PclkDriven<T> {
+impl<T: PclkSourceMarker> AsMut<Self> for WithClock<ClockType = PclkDriven<T>> {
     #[inline]
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
+
+/*
+impl<K> AnyClock for WithClock<ClockType = K>
+where
+    K: Clock,
+{
+    type Mode = WithClock<ClockType = K>;
+}
+
+impl<K> AsRef<Self> for WithClock<ClockType = K>
+where
+    K: Clock,
+{
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<K> AsMut<Self> for WithClock<ClockType = K>
+where
+    K: Clock,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+*/
 
 pub trait EIClkSrc: Sealed {
     type Type: EIClkSrcMarker;
@@ -264,14 +295,11 @@ where
     EP: EnableProtection,
 {
     eic: crate::pac::EIC,
-    clockmode: AK,
+    clockmode: AK::Mode,
     _enablestate: PhantomData<EP>,
 }
 
-impl<CS> EIController<Osc32kDriven<CS>, Configurable>
-where
-    CS: EIClkSrcMarker,
-{
+impl EIController<WithClock<ClockType = Osc32kDriven>, Configurable> {
     /// Create an EIC Controller with a clock source
     ///
     /// This allows for full EIC functionality
@@ -279,16 +307,17 @@ where
     /// # Safety
     ///
     /// Safe because you trade a singleton PAC struct for new singletons
-    pub fn from_osc32k<S>(
+    pub fn from_osc32k<S, K>(
         eic: crate::pac::EIC,
         clock: S,
     ) -> (
-        Enabled<EIController<Osc32kDriven<CS>, Configurable>, U0>,
+        Enabled<EIController<WithClock<ClockType = Osc32kDriven>, Configurable>, U0>,
         Tokens,
         S::Inc,
     )
     where
-        S: EIClkSrc<Type = CS> + ClockIncrement,
+        K: Clock,
+        S: EIClkSrc<Type = K> + ClockIncrement,
     {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
@@ -313,18 +342,21 @@ where
         }
     }
 }
-impl<T> EIController<PclkDriven<T>, Configurable>
+impl<K> EIController<WithClock<ClockType = K>, Configurable>
 where
-    T: PclkSourceMarker,
+    K: Clock,
 {
     /// TODO
-    pub fn from_pclk(
+    pub fn from_pclk<T>(
         eic: crate::pac::EIC,
         reference_clk: Pclk<Eic, T>,
     ) -> (
-        Enabled<EIController<PclkDriven<T>, Configurable>, U0>,
+        Enabled<EIController<WithClock<ClockType = K>, Configurable>, U0>,
         Tokens,
-    ) {
+    )
+    where
+        T: PclkSourceMarker,
+    {
         // Software reset the EIC controller on creation
         eic.ctrla.modify(|_, w| w.swrst().set_bit());
         while eic.syncbusy.read().swrst().bit_is_set() {}
