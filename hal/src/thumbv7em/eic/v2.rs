@@ -15,8 +15,8 @@ pub mod extint;
 pub mod types;
 
 pub use crate::eic::v2::eicontroller::*;
-pub use crate::eic::v2::extint::DebouncerSettings;
-use types::{Counter, Enabled};
+pub use crate::eic::v2::extint::*;
+pub use types::{Counter, Enabled};
 
 //==============================================================================
 // EINum

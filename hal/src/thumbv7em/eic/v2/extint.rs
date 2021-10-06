@@ -333,19 +333,21 @@ where
 {
     /// Change sense mode
     ///
-    /// FIXME Requires extensive type annotations
-    pub fn set_sense_mode<AK2, S2, N>(
+    /// Requires full type annotations
+    /// But if using this as a RTIC resource
+    /// that is already a requirement
+    pub fn set_sense_mode<AK2, S, S2, N>(
         self,
         // Used to enforce having access to EIController
         eic: &Enabled<EIController<AK2, Configurable>, N>,
-        sense: Sense,
     ) -> ExtInt<I, C, AM, AK, S2>
     where
         AK2: AnyClock,
-        S2: AnySenseMode,
+        S: SenseMode,
+        S2: AnySenseMode<Mode = S>,
         N: Counter,
     {
-        eic.set_sense_mode::<I::EINum>(sense);
+        eic.set_sense_mode::<I::EINum>(S::SENSE);
 
         ExtInt {
             token: self.token,

@@ -8,7 +8,7 @@ use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
 // Copied from crate::clock::v2::types, just importing from
 // there causes cargo doc to combine clocking and EIC
 // This needs revisiting
-use crate::clock::types::{
+use crate::clock::v2::types::{
     Counter as ClockCounter, Decrement as ClockDecrement, Enabled as ClockEnabled,
     Increment as ClockIncrement,
 };

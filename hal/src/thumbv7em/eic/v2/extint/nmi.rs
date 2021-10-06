@@ -203,6 +203,33 @@ where
     pub fn clear_interrupt_status(&self) {
         self.token.regs.clear_interrupt_status();
     }
+
+    /// Change sense mode
+    ///
+    /// Requires full type annotations
+    /// But if using this as a RTIC resource
+    /// that is already a requirement
+    pub fn set_sense_mode<AK2, S, S2, N>(
+        self,
+        // Used to enforce having access to EIController
+        eic: &Enabled<EIController<AK2, Configurable>, N>,
+    ) -> NmiExtInt<I, C, AM, AK, S2>
+    where
+        AK2: AnyClock,
+        S: SenseMode,
+        S2: AnySenseMode<Mode = S>,
+        N: Counter,
+    {
+        eic.set_sense_mode_nmi(S::SENSE);
+
+        NmiExtInt {
+            token: self.token,
+            pin: self.pin,
+            mode: PhantomData,
+            clockmode: PhantomData,
+            sensemode: PhantomData,
+        }
+    }
 }
 
 impl<I, C> NmiExtInt<I, C, AsyncOnly, WithoutClock, SenseNone>
