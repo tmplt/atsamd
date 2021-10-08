@@ -38,7 +38,7 @@ pub trait EINum: Sealed {
     /// OFFSET = 1 holds remaining 8..15 `FILTENx` and `SENSEx`
     const OFFSET: u8 = match Self::NUM {
         0..=7 => 0,
-        8.. => 1,
+        8..=255 => 1,
     };
     /// Bitmask associated with NUM
     const MASK: u16 = 1 << Self::NUM;
