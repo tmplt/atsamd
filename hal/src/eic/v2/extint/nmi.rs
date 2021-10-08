@@ -30,8 +30,8 @@ where
     AK: AnyClock,
     AS: AnySenseMode,
 {
-    pub(in crate::thumbv7em::eic::v2) token: NmiToken,
-    pub(in crate::thumbv7em::eic::v2) pin: Pin<I, Interrupt<C>>,
+    pub(in crate::eic::v2) token: NmiToken,
+    pub(in crate::eic::v2) pin: Pin<I, Interrupt<C>>,
     mode: PhantomData<AM>,
     clockmode: PhantomData<AK>,
     sensemode: PhantomData<AS>,

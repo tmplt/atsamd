@@ -1,5 +1,3 @@
-pub mod eic;
-
 mod reset_cause;
 pub use reset_cause::*;
 

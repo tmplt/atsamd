@@ -59,9 +59,6 @@ crate::paste::item! {
         _pin: Pin<GPIO::Id, GPIO::Mode>,
     }
 
-    // impl !Send for [<$PadType $num>]<GPIO> {};
-    // impl !Sync for [<$PadType $num>]<GPIO> {}}
-
     impl<GPIO: AnyPin> [<$PadType $num>]<GPIO> {
         /// Construct pad from the appropriate pin in any mode.
         /// You may find it more convenient to use the `into_pad` trait
@@ -72,6 +69,7 @@ crate::paste::item! {
             }
         }
 
+        /// Configure the eic with options for this external interrupt
         pub fn enable_event(&mut self, eic: &mut super::ConfigurableEIC) {
             eic.eic.evctrl.modify(|_, w| unsafe {
                 w.bits(1 << $num)
@@ -95,9 +93,17 @@ crate::paste::item! {
             intflag & (1 << $num) != 0
         }
 
+        #[cfg(feature = "min-samd51g")]
         pub fn state(&mut self) -> bool {
             let state = unsafe { &(*pac::EIC::ptr()) }.pinstate.read().bits();
             state & (1 << $num) != 0
+        }
+
+        #[cfg(any(feature = "samd11", feature = "samd21"))]
+        pub fn enable_interrupt_wake(&mut self, eic: &mut super::ConfigurableEIC) {
+            eic.eic.wakeup.modify(|_, w| {
+                w.[<wakeupen $num>]().set_bit()
+            })
         }
 
         pub fn clear_interrupt(&mut self) {
@@ -192,6 +198,195 @@ where
     }
 }
 
+// The SAMD11 and SAMD21 devices have different ExtInt designations. Just for
+// clarity's sake, the `ei!()` invocations below have been split into SAMD11-
+// and SAMD21-specific declarations.
+
+// SAMD11
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[1] {
+    Pa15,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[2] {
+    Pa2,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[3] {
+    Pa31,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[4] {
+    Pa4,
+    Pa24,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[5] {
+    Pa5,
+    Pa25,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[6] {
+    Pa8,
+});
+
+#[cfg(feature = "samd11")]
+ei!(ExtInt[7] {
+    Pa9,
+});
+
+// SAMD21
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[0] {
+    Pa0,
+    Pa16,
+    #[cfg(feature = "min-samd21j")]
+    Pb0,
+    #[cfg(feature = "min-samd21j")]
+    Pb16,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[1] {
+    Pa1,
+    Pa17,
+    #[cfg(feature = "min-samd21j")]
+    Pb1,
+    #[cfg(feature = "min-samd21j")]
+    Pb17,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[2] {
+    Pa2,
+    Pa18,
+    #[cfg(feature = "min-samd21g")]
+    Pb2,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[3] {
+    Pa3,
+    Pa19,
+    #[cfg(feature = "min-samd21g")]
+    Pb3,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[4] {
+    Pa4,
+    #[cfg(feature = "min-samd21g")]
+    Pa20,
+    #[cfg(feature = "min-samd21j")]
+    Pb4,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[5] {
+    Pa5,
+    #[cfg(feature = "min-samd21g")]
+    Pa21,
+    #[cfg(feature = "min-samd21j")]
+    Pb5,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[6] {
+    Pa6,
+    Pa22,
+    #[cfg(feature = "min-samd21j")]
+    Pb6,
+    #[cfg(feature = "min-samd21g")]
+    Pb22,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[7] {
+    Pa7,
+    Pa23,
+    #[cfg(feature = "min-samd21j")]
+    Pb7,
+    #[cfg(feature = "min-samd21g")]
+    Pb23,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[8] {
+    Pa28,
+    #[cfg(feature = "min-samd21g")]
+    Pb8,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[9] {
+    Pa9,
+    #[cfg(feature = "min-samd21g")]
+    Pb9,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[10] {
+    Pa10,
+    Pa30,
+    #[cfg(feature = "min-samd21g")]
+    Pb10,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[11] {
+   Pa11,
+   Pa31,
+   #[cfg(feature = "min-samd21g")]
+   Pb11,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[12] {
+    #[cfg(feature = "min-samd21g")]
+    Pa12,
+    Pa24,
+    #[cfg(feature = "min-samd21j")]
+    Pb12,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[13] {
+    #[cfg(feature = "min-samd21g")]
+    Pa13,
+    Pa25,
+    #[cfg(feature = "min-samd21j")]
+    Pb13,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[14] {
+    Pa14,
+    #[cfg(feature = "min-samd21j")]
+    Pb14,
+    #[cfg(feature = "min-samd21j")]
+    Pb30,
+});
+
+#[cfg(feature = "samd21")]
+ei!(ExtInt[15] {
+    Pa15,
+    Pa27,
+    #[cfg(feature = "min-samd21j")]
+    Pb15,
+    #[cfg(feature = "min-samd21j")]
+    Pb31,
+});
+
+// Thumbv7
+
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[0] {
     Pa0,
     Pa16,
@@ -207,6 +402,7 @@ ei!(ExtInt[0] {
     Pd0,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[1] {
     Pa1,
     Pa17,
@@ -222,6 +418,7 @@ ei!(ExtInt[1] {
     Pd1,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[2] {
     Pa2,
     Pa18,
@@ -234,6 +431,7 @@ ei!(ExtInt[2] {
     Pc18,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[3] {
     Pa3,
     Pa19,
@@ -248,6 +446,7 @@ ei!(ExtInt[3] {
     Pd8,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[4] {
     Pa4,
     Pa20,
@@ -263,6 +462,7 @@ ei!(ExtInt[4] {
     Pd9,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[5] {
     Pa5,
     Pa21,
@@ -278,6 +478,7 @@ ei!(ExtInt[5] {
     Pd10,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[6] {
     Pa6,
     Pa22,
@@ -292,6 +493,7 @@ ei!(ExtInt[6] {
     Pd11,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[7] {
     Pa7,
     Pa23,
@@ -304,6 +506,7 @@ ei!(ExtInt[7] {
     Pd12,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[8] {
     Pa24,
     Pb8,
@@ -313,6 +516,7 @@ ei!(ExtInt[8] {
     Pc24,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[9] {
     Pa9,
     Pa25,
@@ -325,6 +529,7 @@ ei!(ExtInt[9] {
     Pc25,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[10] {
     Pa10,
     Pb10,
@@ -336,6 +541,7 @@ ei!(ExtInt[10] {
     Pd20,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[11] {
     Pa11,
     Pa27,
@@ -348,6 +554,7 @@ ei!(ExtInt[11] {
     Pd21,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[12] {
     Pa12,
     #[cfg(feature = "min-samd51j")]
@@ -360,6 +567,7 @@ ei!(ExtInt[12] {
     Pc28,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[13] {
     Pa13,
     #[cfg(feature = "min-samd51j")]
@@ -370,6 +578,7 @@ ei!(ExtInt[13] {
     Pc13,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[14] {
     Pa14,
     Pa30,
@@ -385,6 +594,7 @@ ei!(ExtInt[14] {
     Pc30,
 });
 
+#[cfg(feature = "min-samd51g")]
 ei!(ExtInt[15] {
     Pa15,
     Pa31,

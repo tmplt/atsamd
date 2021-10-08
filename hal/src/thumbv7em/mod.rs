@@ -1,6 +1,5 @@
 pub mod calibration;
 pub mod clock;
-pub mod eic;
 pub mod pukcc;
 pub mod qspi;
 pub(crate) mod sercom;
