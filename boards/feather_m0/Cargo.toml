@@ -133,5 +133,9 @@ name = "blinky_rtic"
 required-features = ["rtic", "unproven"]
 
 [[example]]
+name = "eic_rtic"
+required-features = ["rtic", "unproven"]
+
+[[example]]
 name = "uart"
 required-features = ["dma"]

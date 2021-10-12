@@ -41,6 +41,7 @@ unproven = ["atsamd-hal/unproven"]
 usb = ["atsamd-hal/usb", "usb-device"]
 dma = ["atsamd-hal/dma", "unproven"]
 max-channels = ["dma", "atsamd-hal/dma"]
+rtic = ["atsamd-hal/rtic"]
 
 
 [profile.dev]
@@ -85,3 +86,7 @@ required-features = ["unproven", "usb"]
 [[example]]
 name = "smart_eeprom"
 required-features = ["unproven", "usb"]
+
+[[example]]
+name = "eic_rtic"
+required-features = ["rtic", "unproven"]
