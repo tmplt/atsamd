@@ -408,6 +408,11 @@ where
     {
         eic.set_event_output::<I::EINum>(false);
     }
+
+    /// Borrow the inner Gpio pin, allowing to read the input
+    pub fn borrow_inner_pin(&self) -> &Pin<I, Interrupt<C>> {
+        self.pin.as_ref()
+    }
 }
 
 //==============================================================================
