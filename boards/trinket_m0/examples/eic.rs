@@ -10,7 +10,7 @@ use trinket_m0 as bsp;
 
 use bsp::entry;
 use hal::clock::GenericClockController;
-use hal::eic::{pin::Sense, EIC};
+use hal::eic::v1::{pin::Sense, *};
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
 
@@ -32,11 +32,13 @@ fn main() -> ! {
 
     let gclk0 = clocks.gclk0();
     let clock = clocks.eic(&gclk0).unwrap();
-    let mut eic = EIC::init(&mut peripherals.PM, clock, peripherals.EIC);
+    let mut eic = init_with_gclk(&mut peripherals.PM, clock, peripherals.EIC);
 
     let mut d3 = pins.d3.into_pull_up_ei(&mut pins.port);
     d3.sense(&mut eic, Sense::FALL);
     d3.enable_interrupt(&mut eic);
+
+    let _eic = eic.finalize();
 
     loop {
         if d3.is_interrupt() {
