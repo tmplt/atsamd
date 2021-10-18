@@ -74,6 +74,8 @@ mod app {
         ei_a1.sense(&mut eic, Sense::HIGH);
         ei_a1.enable_interrupt(&mut eic);
 
+        let _eic = eic.finalize();
+
         // We can use the RTC in standby for maximum power savings
         core.SCB.set_sleepdeep();
 
