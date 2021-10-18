@@ -125,7 +125,7 @@ impl Sealed for OscUlp32kDriven {}
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
 /// [type class]: crate::typelevel#type-classes
-pub trait AnyClock: Sealed + Is<Type = SpecificClock<Self>> {
+pub trait AnyClock: Sealed {
     type Mode: Clock;
 }
 

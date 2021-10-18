@@ -5,7 +5,7 @@ use seq_macro::seq;
 
 use crate::gpio::v2::{self as gpio, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
-use crate::typelevel::{Is, NoneT, Sealed};
+use crate::typelevel::{NoneT, Sealed};
 
 pub mod eicontroller;
 pub mod extint;
