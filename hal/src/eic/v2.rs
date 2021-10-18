@@ -3,9 +3,6 @@ use core::marker::PhantomData;
 use paste::paste;
 use seq_macro::seq;
 
-use crate::clock::v2::osculp32k::OscUlp32k;
-use crate::clock::v2::pclk::{Eic, Pclk, PclkSourceMarker};
-use crate::clock::v2::rtc::{Active32k, Output1k};
 use crate::gpio::v2::{self as gpio, PinId};
 use crate::pac::eic::{ctrla::CKSEL_A, dprescaler::*, RegisterBlock};
 use crate::typelevel::{Is, NoneT, Sealed};

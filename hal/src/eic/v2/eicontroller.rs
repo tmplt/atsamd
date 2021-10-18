@@ -4,14 +4,20 @@ use bitfield::*;
 
 use typenum::U0;
 
+use crate::clock::v2::{
+    osculp32k::OscUlp32k,
+    pclk::{Eic, Pclk, PclkSourceMarker},
+    rtc::{Active32k, Output1k},
+    types::{
+        Counter as ClockCounter, Decrement as ClockDecrement, Enabled as ClockEnabled,
+        Increment as ClockIncrement,
+    },
+};
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
+
 // Copied from crate::clock::v2::types, just importing from
 // there causes cargo doc to combine clocking and EIC
 // This needs revisiting
-use crate::clock::v2::types::{
-    Counter as ClockCounter, Decrement as ClockDecrement, Enabled as ClockEnabled,
-    Increment as ClockIncrement,
-};
 use types::{Counter, Enabled, PrivateDecrement, PrivateIncrement};
 
 use crate::eic::v2::*;
