@@ -1,9 +1,8 @@
 use core::marker::PhantomData;
-use core::mem::transmute;
 
 use crate::eic::v2::*;
 use crate::gpio::v2::{Interrupt, InterruptConfig, Pin};
-use crate::typelevel::{Is, Sealed};
+use crate::typelevel::Sealed;
 
 pub mod asynconly;
 pub mod debounced;
@@ -90,11 +89,9 @@ impl Mode for DebouncedAsync {
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
 /// [type class]: crate::typelevel#type-classes
-pub trait AnyMode: Sealed + Is<Type = SpecificMode<Self>> {
+pub trait AnyMode: Sealed {
     type Mode: Mode;
 }
-
-pub type SpecificMode<S> = <S as AnyMode>::Mode;
 
 macro_rules! any_mode {
     ($name:ident) => {
@@ -225,11 +222,9 @@ impl DebounceMode for SenseBoth {}
 ///
 /// [`AnyKind`]: crate::typelevel#anykind-trait-pattern
 /// [type class]: crate::typelevel#type-classes
-pub trait AnySenseMode: Sealed + Is<Type = SpecificSenseMode<Self>> {
+pub trait AnySenseMode: Sealed {
     type Mode: SenseMode;
 }
-
-pub type SpecificSenseMode<S> = <S as AnySenseMode>::Mode;
 
 macro_rules! any_sense {
     ($name:ident) => {
@@ -420,13 +415,9 @@ where
 //==============================================================================
 
 // It probably makes sense to implement the `AnyKind` pattern for ExtInt
-pub trait AnyExtInt: Is<Type = SpecificExtInt<Self>>
+pub trait AnyExtInt
 where
-    Self: Sealed,
-    Self: From<SpecificExtInt<Self>>,
-    Self: Into<SpecificExtInt<Self>>,
-    Self: AsRef<SpecificExtInt<Self>>,
-    Self: AsMut<SpecificExtInt<Self>>,
+    Self: EINum,
 {
     /// Associated type representing the ExtInt number [`EINum`]
     type Num: GetEINum;
@@ -438,41 +429,4 @@ where
     type Clock: AnyClock;
     /// ExtInt SenseMode [`Sense`]
     type SenseMode: AnySenseMode;
-}
-
-impl<I, C, AM, AK, AS> AnyExtInt for ExtInt<I, C, AM, AK, AS>
-where
-    I: GetEINum,
-    C: InterruptConfig,
-    AM: AnyMode,
-    AK: AnyClock,
-    AS: AnySenseMode,
-{
-    type Num = I;
-    type Pin = C;
-    type Mode = AM;
-    type Clock = AK;
-    type SenseMode = AS;
-}
-
-pub type SpecificExtInt<E> = ExtInt<
-    <E as AnyExtInt>::Num,
-    <E as AnyExtInt>::Pin,
-    <E as AnyExtInt>::Mode,
-    <E as AnyExtInt>::Clock,
-    <E as AnyExtInt>::SenseMode,
->;
-
-impl<E: AnyExtInt> AsRef<E> for SpecificExtInt<E> {
-    #[inline]
-    fn as_ref(&self) -> &E {
-        unsafe { transmute(self) }
-    }
-}
-
-impl<E: AnyExtInt> AsMut<E> for SpecificExtInt<E> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut E {
-        unsafe { transmute(self) }
-    }
 }

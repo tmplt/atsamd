@@ -129,9 +129,6 @@ pub trait AnyClock: Sealed {
     type Mode: Clock;
 }
 
-/// Type alias for extracting a specific clock from [`AnyClock`]
-pub type SpecificClock<K> = <K as AnyClock>::Mode;
-
 impl AnyClock for WithoutClock {
     type Mode = WithoutClock;
 }
