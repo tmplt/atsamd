@@ -7,6 +7,7 @@
 - Add Integrity Check Monitor (ICM) abstraction (#480)
 - Add Public Key Cryptography Controller (PUKCC) support (#486)
 - Refactor the SPI module (#467)
+- Add Device Service Unit (DSU), Non-volatile Controller (NVM), SmartEEPROM support (#526)
 
 ---
 
