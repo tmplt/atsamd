@@ -56,9 +56,9 @@ pub trait EINum: Sealed {
 seq!(N in 00..16 {
     paste! {
         #[doc = "Token type for ExtInt" N]
-        pub enum EI#N {}
-        impl Sealed for EI#N {}
-        impl EINum for EI#N {
+        pub enum EI #N {}
+        impl Sealed for EI #N {}
+        impl EINum for EI #N {
             const NUM: u8 = N;
         }
     }
@@ -392,7 +392,7 @@ seq!(N in 00..16 {
             #(
                 #[allow(dead_code)]
                 #[doc = "Token for EI" N]
-                pub ext_int_#N: Token<EI#N>,
+                pub ext_int_ #N: Token<EI #N>,
             )*
             #[allow(dead_code)]
             #[doc = "Token for EINMI"]
@@ -409,7 +409,7 @@ seq!(N in 00..16 {
             unsafe fn new() -> Self {
                 Tokens {
                     #(
-                        ext_int_#N: Token::new(),
+                        ext_int_ #N: Token::new(),
                     )*
                     ext_int_nmi: NmiToken::new(),
                 }
