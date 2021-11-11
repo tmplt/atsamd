@@ -99,9 +99,9 @@ macro_rules! dbgprint {
 #[cfg(feature = "device")]
 pub mod delay;
 #[cfg(feature = "device")]
-pub mod gpio;
-#[cfg(feature = "device")]
 pub mod eic;
+#[cfg(feature = "device")]
+pub mod gpio;
 #[cfg(feature = "device")]
 pub mod prelude;
 #[cfg(feature = "device")]
@@ -154,9 +154,9 @@ pub mod common {
     #[cfg(feature = "device")]
     pub use crate::delay;
     #[cfg(feature = "device")]
-    pub use crate::gpio;
-    #[cfg(feature = "device")]
     pub use crate::eic;
+    #[cfg(feature = "device")]
+    pub use crate::gpio;
     #[cfg(feature = "device")]
     pub use crate::prelude;
     #[cfg(feature = "device")]

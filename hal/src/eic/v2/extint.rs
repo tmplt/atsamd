@@ -271,7 +271,6 @@ any_sense!(SenseLow);
 ///
 /// The exception is the NMI interrupt, see [`NmiExtInt`].
 ///
-///
 pub struct ExtInt<I, C, AM, AK, AS>
 where
     I: GetEINum,
