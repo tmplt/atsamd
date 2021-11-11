@@ -17,8 +17,10 @@ use feather_m0 as bsp;
 use bsp::entry;
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
-use hal::eic::pin::{ExtInt2, Sense};
-use hal::eic::EIC;
+use hal::eic::v1::{
+    init_with_gclk,
+    pin::{Sense, *},
+};
 use hal::gpio::v2::{Pin, PullUpInterrupt};
 use hal::prelude::*;
 use pac::{interrupt, CorePeripherals, Peripherals};
@@ -45,7 +47,7 @@ fn main() -> ! {
     let mut delay = Delay::new(core.SYST, &mut clocks);
 
     let eic_clock = clocks.eic(&gclk0).unwrap();
-    let mut eic = EIC::init(&mut peripherals.PM, eic_clock, peripherals.EIC);
+    let mut eic = init_with_gclk(&mut peripherals.PM, eic_clock, peripherals.EIC);
     let button: Pin<_, PullUpInterrupt> = pins.d10.into();
     let mut extint = ExtInt2::new(button);
     extint.sense(&mut eic, Sense::FALL);

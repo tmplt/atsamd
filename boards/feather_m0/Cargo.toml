@@ -39,6 +39,7 @@ nom = { version = "5.1", default-features = false }
 heapless = "0.5"
 panic-halt = "0.2"
 panic-semihosting = "0.5"
+fugit = "0.3.0"
 
 [features]
 # ask the HAL to enable atsamd21g support

@@ -18,11 +18,11 @@ mod app {
 
     use super::*;
     use bsp::hal;
+    use fugit::ExtU32;
     use hal::clock::{ClockGenId, ClockSource, GenericClockController};
     use hal::pac::Peripherals;
     use hal::prelude::*;
     use hal::rtc::{Count32Mode, Rtc};
-    use rtic::rtic_monotonic::Extensions;
 
     use hal::eic::v1::{pin::*, *};
     use hal::gpio::v2::*;
@@ -89,7 +89,7 @@ mod app {
     fn blink(mut cx: blink::Context) {
         // If the LED were a local resource, the lock would not be necessary
         cx.shared.red_led.lock(|led| led.toggle().unwrap());
-        blink::spawn_after(1_u32.seconds()).ok();
+        blink::spawn_after(1_u32.secs()).ok();
     }
 
     #[task(binds = EIC, local = [ei_a1])]
