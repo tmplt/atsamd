@@ -32,6 +32,10 @@ replace_with = { version = "0.1", default-features = false }
 seq-macro = "0.2.1"
 typenum = "1.12.0"
 vcell = "0.1"
+# AES related
+aes = "0.7.5"
+cipher = "0.3"
+opaque-debug = "0.3.0"
 
 [dependencies.jlink_rtt]
 optional = true
