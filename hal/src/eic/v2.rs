@@ -558,15 +558,15 @@ impl_get_ei_num!(PB24, EI08, 8);
 impl_get_ei_num!(PC24, EI08, 8);
 
 // ExtInt 9
-impl_get_ei_num!(PA09, EI08, 7);
-impl_get_ei_num!(PA25, EI08, 7);
-impl_get_ei_num!(PB09, EI08, 7);
+impl_get_ei_num!(PA09, EI09, 9);
+impl_get_ei_num!(PA25, EI09, 9);
+impl_get_ei_num!(PB09, EI09, 9);
 #[cfg(feature = "min-samd51n")]
-impl_get_ei_num!(PB25, EI08, 7);
+impl_get_ei_num!(PB25, EI09, 9);
 #[cfg(feature = "min-samd51n")]
-impl_get_ei_num!(PC07, EI07, 7);
+impl_get_ei_num!(PC09, EI09, 9);
 #[cfg(feature = "min-samd51n")]
-impl_get_ei_num!(PC25, EI08, 7);
+impl_get_ei_num!(PC25, EI09, 9);
 
 // ExtInt 10
 impl_get_ei_num!(PA10, EI10, 10);
