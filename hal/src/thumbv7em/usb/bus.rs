@@ -18,6 +18,7 @@ use core::marker::PhantomData;
 use core::mem;
 use cortex_m::interrupt::{free as disable_interrupts, Mutex};
 use cortex_m::singleton;
+use rtt_target::rprintln;
 use usb_device::bus::PollResult;
 use usb_device::endpoint::{EndpointAddress, EndpointType};
 use usb_device::{Result as UsbResult, UsbDirection, UsbError};
@@ -829,6 +830,7 @@ impl Inner {
             // end of reset interrupt
             self.usb().intflag.write(|w| w.eorst().set_bit());
             dbgprint!("PollResult::Reset\n");
+            rprintln!("==> poll: Returns: PollResult::Reset");
             return PollResult::Reset;
         }
         // As the suspend & wakup interrupts/states cannot distinguish between
@@ -889,11 +891,18 @@ impl Inner {
             }
         }
 
-        PollResult::Data {
+        let ret = PollResult::Data {
             ep_out,
             ep_in_complete,
             ep_setup,
-        }
+        };
+        rprintln!(
+            "==> poll: Returns: PollResult::Data {{ ep_out: {:x?}, ep_in_complete: {:x?}, ep_setup: {:x?} }}",
+            ep_out,
+            ep_in_complete,
+            ep_setup,
+        );
+        ret
     }
 
     fn write(&self, ep: EndpointAddress, buf: &[u8]) -> UsbResult<usize> {
@@ -999,10 +1008,12 @@ impl UsbBus {
 
 impl usb_device::bus::UsbBus for UsbBus {
     fn enable(&mut self) {
+        rprintln!("==> ENABLE");
         disable_interrupts(|cs| self.inner.borrow(cs).borrow_mut().enable())
     }
 
     fn reset(&self) {
+        rprintln!("==> RESET");
         disable_interrupts(|cs| self.inner.borrow(cs).borrow().protocol_reset())
     }
 
@@ -1022,7 +1033,15 @@ impl usb_device::bus::UsbBus for UsbBus {
         max_packet_size: u16,
         interval: u8,
     ) -> UsbResult<EndpointAddress> {
-        disable_interrupts(|cs| {
+        rprintln!(
+            "==> ALLOC_EP: dir: {:?}, addr: {:?}, ep_type {:?}, max_packet_size: {}, interval: {}",
+            dir,
+            addr,
+            ep_type,
+            max_packet_size,
+            interval
+        );
+        let ret = disable_interrupts(|cs| {
             self.inner.borrow(cs).borrow_mut().alloc_ep(
                 dir,
                 addr,
@@ -1030,10 +1049,13 @@ impl usb_device::bus::UsbBus for UsbBus {
                 max_packet_size,
                 interval,
             )
-        })
+        });
+        rprintln!("Returns: {:?}", ret);
+        ret
     }
 
     fn set_device_address(&self, addr: u8) {
+        rprintln!("==> SET_DEVICE_ADDR: {}", addr);
         disable_interrupts(|cs| self.inner.borrow(cs).borrow().set_device_address(addr))
     }
 
@@ -1042,18 +1064,29 @@ impl usb_device::bus::UsbBus for UsbBus {
     }
 
     fn write(&self, ep: EndpointAddress, buf: &[u8]) -> UsbResult<usize> {
-        disable_interrupts(|cs| self.inner.borrow(cs).borrow().write(ep, buf))
+        rprintln!("==> WRITE: ep: {:?}, buf: {:x?}", ep, buf);
+        let ret = disable_interrupts(|cs| self.inner.borrow(cs).borrow().write(ep, buf));
+        ret
     }
 
     fn read(&self, ep: EndpointAddress, buf: &mut [u8]) -> UsbResult<usize> {
-        disable_interrupts(|cs| self.inner.borrow(cs).borrow().read(ep, buf))
+        let ret = disable_interrupts(|cs| self.inner.borrow(cs).borrow().read(ep, buf));
+        rprintln!(
+            "==> READ: ep: {:?}, buf: {:x?}",
+            ep,
+            &buf[..*ret.as_ref().unwrap() as usize]
+        );
+        ret
     }
 
     fn set_stalled(&self, ep: EndpointAddress, stalled: bool) {
+        rprintln!("==> SET_STALLED: ep: {:?}, stalled: {}", ep, stalled);
         disable_interrupts(|cs| self.inner.borrow(cs).borrow().set_stalled(ep, stalled))
     }
 
     fn is_stalled(&self, ep: EndpointAddress) -> bool {
-        disable_interrupts(|cs| self.inner.borrow(cs).borrow().is_stalled(ep))
+        let ret = disable_interrupts(|cs| self.inner.borrow(cs).borrow().is_stalled(ep));
+        rprintln!("==> IS_STALLED: ep: {:?}, returned {}", ep, ret);
+        ret
     }
 }

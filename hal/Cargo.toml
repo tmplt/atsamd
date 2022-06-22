@@ -32,6 +32,7 @@ replace_with = { version = "0.1", default-features = false }
 seq-macro = "0.2.1"
 typenum = "1.12.0"
 vcell = "0.1"
+rtt-target = { version = "0.3.1", features = ["cortex-m"] }
 
 [dependencies.jlink_rtt]
 optional = true
